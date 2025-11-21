@@ -1,30 +1,43 @@
 """
-File-based storage for memory blocks with concurrent write protection.
+SQLite-based storage for memory blocks with WAL mode and checksums.
 
-Provides durable, transactional storage with:
+UPGRADED: November 2025 - Production hardening
+- SQLite database with WAL (Write-Ahead Logging) mode
+- SHA-256 checksums on every save
+- Atomic UPSERT operations for crash safety
+- Automatic migration from legacy JSON files
+- Concurrent reads during writes
+- Per-session storage with centralized database
+
+Previous architecture (JSON files):
 - File locking for concurrent writes
-- Automatic backups on save
-- Checksum validation
-- Size limits
-- Asset management
+- Manual backup management
+- Per-session JSON files
+
+New architecture (SQLite + WAL):
+- Automatic crash recovery
+- Checksum validation on load
+- Schema versioning for future migrations
+- Better performance for write-heavy workloads
 
 Directory structure:
 ~/.memagent/
-├── sessions/
+├── traceos_memory.db          (NEW: centralized SQLite database)
+├── traceos_memory.db-wal      (NEW: WAL file)
+├── traceos_memory.db-shm      (NEW: shared memory file)
+├── sessions/                   (LEGACY: migrated automatically)
 │   ├── {session_id}/
-│   │   ├── memory.json
-│   │   ├── memory.json.lock
+│   │   ├── memory.json        (migrated to SQLite)
 │   │   ├── assets/
 │   │   │   ├── latest.svg
-│   │   │   ├── 2025-10-27T03-11-02.svg
-│   │   └── backups/
-│   │       ├── memory.2025-10-27T03-11-02.json
 ├── cache/
 └── index.json
 """
 
 import orjson
 import shutil
+import sqlite3
+import hashlib
 from pathlib import Path
 from typing import Optional, List, Dict
 import portalocker
@@ -38,22 +51,125 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
+# SQLite Configuration
+class StorageCorruptionError(Exception):
+    """Raised when stored data fails checksum validation"""
+    pass
+
+
+# SQLite Schema (multi-session design)
+SCHEMA = '''
+CREATE TABLE IF NOT EXISTS memory_blocks (
+  session_id   TEXT PRIMARY KEY,
+  updated_at   TEXT NOT NULL,
+  payload      BLOB NOT NULL,
+  checksum     TEXT NOT NULL,
+  schema_ver   INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_updated_at ON memory_blocks(updated_at);
+'''
+
+
+def compute_checksum(payload_bytes: bytes) -> str:
+    """
+    Compute SHA-256 checksum of payload.
+
+    Args:
+        payload_bytes: Raw bytes to checksum
+
+    Returns:
+        Hexadecimal string (64 characters)
+    """
+    return hashlib.sha256(payload_bytes).hexdigest()
+
+
+def get_db_path(base_path: Path) -> Path:
+    """
+    Get path to centralized SQLite database.
+
+    Args:
+        base_path: Storage directory
+
+    Returns:
+        Path to traceos_memory.db
+    """
+    return base_path / "traceos_memory.db"
+
+
+def get_connection(db_path: Path) -> sqlite3.Connection:
+    """
+    Create SQLite connection with WAL mode enabled.
+
+    WAL (Write-Ahead Logging) provides:
+    - Crash safety (no corruption on power loss)
+    - Concurrent reads during writes
+    - Better performance for write-heavy workloads
+
+    Args:
+        db_path: Path to database file
+
+    Returns:
+        Configured SQLite connection
+    """
+    conn = sqlite3.Connection(
+        str(db_path),
+        isolation_level=None,  # Autocommit mode
+        check_same_thread=False  # Allow multi-threaded access
+    )
+
+    # Enable WAL mode
+    conn.execute("PRAGMA journal_mode=WAL;")
+
+    # Synchronous NORMAL for performance
+    # (FULL is slower but safer, NORMAL is good balance)
+    conn.execute("PRAGMA synchronous=NORMAL;")
+
+    # Enable foreign keys
+    conn.execute("PRAGMA foreign_keys=ON;")
+
+    # Log confirmation (only once)
+    journal_mode = conn.execute("PRAGMA journal_mode;").fetchone()[0]
+    if journal_mode == "wal":
+        logger.debug(f"SQLite WAL mode enabled: {db_path.name}")
+    else:
+        logger.warning(f"SQLite WAL mode not enabled (got {journal_mode})")
+
+    return conn
+
+
+def initialize_database(db_path: Path):
+    """
+    Create database schema if not exists.
+
+    Args:
+        db_path: Path to database file
+    """
+    conn = get_connection(db_path)
+    try:
+        conn.executescript(SCHEMA)
+        logger.debug("Database schema initialized")
+    finally:
+        conn.close()
+
+
 class MemoryStorage:
     """
-    File-based storage for memory blocks with concurrent write protection.
+    SQLite-based storage for memory blocks with WAL mode and checksums.
 
-    Features:
-    - File locking for concurrent writes
-    - Automatic backups (keeps last 5)
-    - Checksum validation on load
-    - Size limit enforcement
-    - Index for fast lookups
-    - Asset management
+    Features (UPGRADED November 2025):
+    - SQLite database with WAL mode for crash safety
+    - SHA-256 checksums on every save
+    - Atomic UPSERT operations
+    - Concurrent reads during writes
+    - Automatic migration from legacy JSON files
+    - Session-based storage in centralized database
+    - Asset management (still file-based)
     """
 
     def __init__(self, base_path: Optional[str] = None):
         """
-        Initialize memory storage.
+        Initialize memory storage with SQLite database.
 
         Args:
             base_path: Storage directory (defaults to settings.STORAGE_PATH)
@@ -61,9 +177,17 @@ class MemoryStorage:
         self.base = Path(base_path or settings.STORAGE_PATH).expanduser()
         self.base.mkdir(parents=True, exist_ok=True)
 
+        # Initialize SQLite database
+        self.db_path = get_db_path(self.base)
+        initialize_database(self.db_path)
+
+        # Index still used for compatibility (will be updated to use SQLite)
         self.index = SessionIndex(self.base / "index.json")
 
-        logger.info(f"MemoryStorage initialized: {self.base}")
+        # Run automatic migration from legacy JSON files
+        self._migrate_legacy_json_sessions()
+
+        logger.info(f"MemoryStorage initialized (SQLite + WAL): {self.base}")
 
     def session_dir(self, session_id: str) -> Path:
         """
@@ -81,26 +205,25 @@ class MemoryStorage:
 
     def save_memory_block(self, block: MemoryBlock) -> Path:
         """
-        Save memory block to disk with locking and backup.
+        Save memory block to SQLite database with atomic UPSERT.
 
-        Process:
-        1. Compute checksum
-        2. Validate size
-        3. Acquire file lock
-        4. Backup existing file
-        5. Write new file atomically
+        Process (UPGRADED to SQLite):
+        1. Update timestamp
+        2. Serialize to JSON bytes
+        3. Compute SHA-256 checksum
+        4. Validate size
+        5. Atomic UPSERT to database (WAL mode = crash safe)
         6. Update index
-        7. Release lock
 
         Args:
             block: MemoryBlock to save
 
         Returns:
-            Path to saved memory.json
+            Path to database file (for compatibility)
 
         Raises:
             ValueError: If block is too large
-            IOError: If write fails
+            sqlite3.Error: If database write fails
         """
         # Update timestamp BEFORE computing checksum
         block.last_updated = datetime.utcnow()
@@ -121,62 +244,53 @@ class MemoryStorage:
                 f"(max {settings.MAX_MEMORY_BLOCK_SIZE})"
             )
 
-        # Paths
-        session_dir = self.session_dir(block.session_id)
-        memory_path = session_dir / "memory.json"
-        lock_path = session_dir / "memory.json.lock"
-        backup_dir = session_dir / "backups"
-        backup_dir.mkdir(exist_ok=True)
+        # Compute SHA-256 checksum of payload
+        payload_checksum = compute_checksum(block_bytes)
 
-        # Acquire lock and write
-        with open(lock_path, 'w') as lock_file:
-            portalocker.lock(lock_file, portalocker.LOCK_EX)
+        # Current timestamp
+        timestamp = block.last_updated.isoformat()
 
-            try:
-                # Backup existing file
-                if memory_path.exists():
-                    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
-                    backup_path = backup_dir / f"memory.{timestamp}.json"
+        # Atomic UPSERT to SQLite (WAL mode ensures crash safety)
+        conn = get_connection(self.db_path)
+        try:
+            conn.execute(
+                '''
+                INSERT INTO memory_blocks (session_id, updated_at, payload, checksum, schema_ver)
+                VALUES (?, ?, ?, ?, 1)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    updated_at = excluded.updated_at,
+                    payload    = excluded.payload,
+                    checksum   = excluded.checksum,
+                    schema_ver = excluded.schema_ver
+                ''',
+                (block.session_id, timestamp, block_bytes, payload_checksum)
+            )
 
-                    try:
-                        shutil.copy2(memory_path, backup_path)
-                        logger.debug(f"Backed up memory block: {backup_path.name}")
-                    except Exception as e:
-                        logger.warning(f"Backup failed (continuing): {e}")
+            # Update index
+            self.index.add(block.session_id, {
+                "memory_block_id": block.memory_block_id,
+                "last_updated": timestamp,
+                "size_bytes": size_bytes
+            })
 
-                    # Keep only last 5 backups
-                    self._cleanup_backups(backup_dir, keep=5)
+            logger.info(
+                f"Memory block saved to SQLite: {block.session_id} "
+                f"({size_bytes} bytes, checksum: {payload_checksum[:16]}...)"
+            )
 
-                # Write new file atomically (write to temp, then rename)
-                temp_path = memory_path.with_suffix('.json.tmp')
-                temp_path.write_bytes(block_bytes)
-                temp_path.replace(memory_path)
+        finally:
+            conn.close()
 
-                # Update index
-                self.index.add(block.session_id, {
-                    "memory_block_id": block.memory_block_id,
-                    "last_updated": block.last_updated.isoformat(),
-                    "size_bytes": size_bytes
-                })
-
-                logger.info(
-                    f"Memory block saved: {block.session_id} "
-                    f"({size_bytes} bytes, checksum: {block.checksum[:8]}...)"
-                )
-
-            finally:
-                portalocker.unlock(lock_file)
-
-        return memory_path
+        return self.db_path  # Return db path for compatibility
 
     def load_memory_block(self, session_id: str) -> Optional[MemoryBlock]:
         """
-        Load memory block from disk with validation.
+        Load memory block from SQLite database with checksum validation.
 
-        Process:
-        1. Read file
-        2. Parse JSON
-        3. Validate checksum
+        Process (UPGRADED to SQLite):
+        1. Query database for session
+        2. Validate SHA-256 checksum
+        3. Parse JSON payload
         4. Return MemoryBlock
 
         Args:
@@ -186,35 +300,59 @@ class MemoryStorage:
             MemoryBlock or None if not found
 
         Raises:
-            ValueError: If checksum validation fails
+            StorageCorruptionError: If checksum validation fails
             orjson.JSONDecodeError: If JSON is malformed
         """
-        memory_path = self.session_dir(session_id) / "memory.json"
-
-        if not memory_path.exists():
-            logger.debug(f"Memory block not found: {session_id}")
-            return None
-
+        conn = get_connection(self.db_path)
         try:
-            data = orjson.loads(memory_path.read_bytes())
-            block = MemoryBlock(**data)
+            # Load row for session
+            result = conn.execute(
+                "SELECT payload, checksum FROM memory_blocks WHERE session_id = ?",
+                (session_id,)
+            ).fetchone()
 
-            # Validate checksum
-            if not block.validate_checksum():
-                logger.error(f"Checksum validation failed for {session_id}")
-                raise ValueError(
+            if result is None:
+                logger.debug(f"Memory block not found in SQLite: {session_id}")
+                return None
+
+            payload_bytes, stored_checksum = result
+
+            # Validate SHA-256 checksum
+            computed_checksum = compute_checksum(payload_bytes)
+            if computed_checksum != stored_checksum:
+                logger.error(
+                    f"Checksum mismatch! Session: {session_id}, "
+                    f"Stored: {stored_checksum[:16]}..., "
+                    f"Computed: {computed_checksum[:16]}..."
+                )
+                raise StorageCorruptionError(
                     f"Memory block corrupted (checksum mismatch): {session_id}"
                 )
 
-            logger.debug(f"Memory block loaded: {session_id}")
+            # Decode payload
+            data = orjson.loads(payload_bytes)
+            block = MemoryBlock(**data)
+
+            # Additional validation: MemoryBlock's internal checksum
+            if not block.validate_checksum():
+                logger.warning(
+                    f"MemoryBlock internal checksum mismatch for {session_id} "
+                    f"(SQLite checksum OK, but block.checksum field doesn't match)"
+                )
+
+            logger.debug(f"Memory block loaded from SQLite: {session_id}")
             return block
 
         except orjson.JSONDecodeError as e:
             logger.error(f"Failed to parse memory block {session_id}: {e}")
             raise
+        except StorageCorruptionError:
+            raise
         except Exception as e:
             logger.error(f"Failed to load memory block {session_id}: {e}")
             raise
+        finally:
+            conn.close()
 
     def save_asset(self, session_id: str, asset: AssetState) -> Path:
         """
@@ -269,16 +407,28 @@ class MemoryStorage:
 
     def delete_session(self, session_id: str):
         """
-        Delete entire session directory.
+        Delete session from SQLite database and remove directory.
 
         Args:
             session_id: Session identifier
         """
+        # Delete from SQLite
+        conn = get_connection(self.db_path)
+        try:
+            conn.execute("DELETE FROM memory_blocks WHERE session_id = ?", (session_id,))
+            logger.debug(f"Deleted session from SQLite: {session_id}")
+        finally:
+            conn.close()
+
+        # Delete session directory (assets, etc.)
         session_dir = self.session_dir(session_id)
         if session_dir.exists():
             shutil.rmtree(session_dir)
-            self.index.remove(session_id)
-            logger.info(f"Session deleted: {session_id}")
+
+        # Remove from index
+        self.index.remove(session_id)
+
+        logger.info(f"Session deleted: {session_id}")
 
     def list_sessions(self, limit: int = 100) -> List[Dict]:
         """
@@ -294,15 +444,23 @@ class MemoryStorage:
 
     def session_exists(self, session_id: str) -> bool:
         """
-        Check if session exists.
+        Check if session exists in SQLite database.
 
         Args:
             session_id: Session identifier
 
         Returns:
-            True if session exists in index
+            True if session exists in SQLite
         """
-        return self.index.exists(session_id)
+        conn = get_connection(self.db_path)
+        try:
+            result = conn.execute(
+                "SELECT COUNT(*) FROM memory_blocks WHERE session_id = ?",
+                (session_id,)
+            ).fetchone()
+            return result[0] > 0
+        finally:
+            conn.close()
 
     def get_storage_stats(self) -> Dict:
         """
@@ -332,9 +490,81 @@ class MemoryStorage:
             "storage_path": str(self.base)
         }
 
+    def _migrate_legacy_json_sessions(self) -> int:
+        """
+        Automatically migrate legacy JSON files to SQLite database.
+
+        Scans sessions directory for memory.json files and migrates them
+        to the centralized SQLite database. Renames migrated JSON files
+        to memory.json.migrated to prevent re-migration.
+
+        Returns:
+            Number of sessions migrated
+        """
+        sessions_dir = self.base / "sessions"
+        if not sessions_dir.exists():
+            logger.debug("No legacy sessions directory found, skipping migration")
+            return 0
+
+        migrated_count = 0
+
+        # Find all session directories with memory.json files
+        for session_dir in sessions_dir.iterdir():
+            if not session_dir.is_dir():
+                continue
+
+            memory_json = session_dir / "memory.json"
+            if not memory_json.exists():
+                continue
+
+            session_id = session_dir.name
+
+            # Check if already in SQLite
+            conn = get_connection(self.db_path)
+            try:
+                result = conn.execute(
+                    "SELECT COUNT(*) FROM memory_blocks WHERE session_id = ?",
+                    (session_id,)
+                ).fetchone()
+
+                if result[0] > 0:
+                    logger.debug(f"Session {session_id} already in SQLite, skipping")
+                    continue
+
+                # Load legacy JSON
+                try:
+                    data = orjson.loads(memory_json.read_bytes())
+                    block = MemoryBlock(**data)
+
+                    logger.info(f"Migrating session {session_id} from JSON to SQLite")
+
+                    # Save to SQLite (using existing save_memory_block method)
+                    self.save_memory_block(block)
+
+                    # Rename JSON file to prevent re-migration
+                    migrated_path = memory_json.with_suffix('.json.migrated')
+                    memory_json.rename(migrated_path)
+
+                    migrated_count += 1
+                    logger.info(f"Migrated session {session_id} successfully")
+
+                except Exception as e:
+                    logger.error(f"Failed to migrate session {session_id}: {e}")
+                    continue
+
+            finally:
+                conn.close()
+
+        if migrated_count > 0:
+            logger.info(f"Migration complete: {migrated_count} sessions migrated to SQLite")
+        else:
+            logger.debug("No legacy sessions found to migrate")
+
+        return migrated_count
+
     def _cleanup_backups(self, backup_dir: Path, keep: int = 5):
         """
-        Keep only the N most recent backups.
+        Keep only the N most recent backups (DEPRECATED - no longer used with SQLite).
 
         Args:
             backup_dir: Directory containing backups
@@ -353,20 +583,23 @@ class MemoryStorage:
 
     def repair_index(self):
         """
-        Repair index by scanning actual sessions on disk.
+        Repair index by scanning SQLite database.
 
-        Useful after manual file operations or corruption.
+        Rebuilds index from sessions actually stored in the database.
         """
-        sessions_dir = self.base / "sessions"
-        if not sessions_dir.exists():
-            logger.warning("No sessions directory found")
-            return
+        conn = get_connection(self.db_path)
+        try:
+            # Get all session IDs from SQLite
+            result = conn.execute(
+                "SELECT session_id FROM memory_blocks"
+            ).fetchall()
 
-        # Find all session directories
-        session_dirs = [d for d in sessions_dir.iterdir() if d.is_dir()]
-        valid_session_ids = [d.name for d in session_dirs]
+            valid_session_ids = [row[0] for row in result]
 
-        # Repair index
-        self.index.repair(valid_session_ids)
+            # Repair index
+            self.index.repair(valid_session_ids)
 
-        logger.info(f"Index repaired: {len(valid_session_ids)} sessions found")
+            logger.info(f"Index repaired from SQLite: {len(valid_session_ids)} sessions found")
+
+        finally:
+            conn.close()
