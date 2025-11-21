@@ -1,16 +1,19 @@
 /**
  * useWebGPU - React hook for WebGPU device initialization.
  *
- * Manages GPU device lifecycle:
- * - Device initialization
- * - Error handling
- * - Device lost recovery
- * - Cleanup on unmount
+ * Now uses centralized WebGPUManager with retry limits.
+ *
+ * Changes:
+ * - Uses WebGPUManager for centralized device management
+ * - Automatic retry with max 3 attempts
+ * - Fallback to Canvas2D after failures
+ * - Device lost recovery handled globally
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { GPUDeviceContext } from '../gpu/types';
-import { initializeGPUDevice, isWebGPUSupported } from '../gpu/device';
+import { WebGPUManager } from '../gpu/WebGPUManager';
+import { isWebGPUSupported } from '../gpu/device';
 
 export interface UseWebGPUResult {
   /** GPU device context (null if not initialized) */
@@ -24,6 +27,9 @@ export interface UseWebGPUResult {
 
   /** Whether WebGPU is supported */
   isSupported: boolean;
+
+  /** Current retry attempts */
+  retryAttempts: number;
 
   /** Manually trigger re-initialization */
   reinitialize: () => Promise<void>;
@@ -39,6 +45,7 @@ export function useWebGPU(): UseWebGPUResult {
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [isSupported] = useState(() => isWebGPUSupported());
+  const [retryAttempts, setRetryAttempts] = useState(0);
 
   const initialize = useCallback(async () => {
     if (!isSupported) {
@@ -50,13 +57,14 @@ export function useWebGPU(): UseWebGPUResult {
     setError(null);
 
     try {
-      const ctx = await initializeGPUDevice();
+      const ctx = await WebGPUManager.initialize();
 
       if (!ctx) {
         throw new Error('Failed to initialize GPU device');
       }
 
       setDeviceContext(ctx);
+      setRetryAttempts(WebGPUManager.getRetryAttempts());
       console.log('[useWebGPU] Device initialized successfully');
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
@@ -78,27 +86,38 @@ export function useWebGPU(): UseWebGPUResult {
     initialize();
   }, [initialize]);
 
-  // Handle device lost
+  // Subscribe to WebGPUManager state changes
   useEffect(() => {
-    if (!deviceContext) return;
+    const unsubscribe = WebGPUManager.subscribe((context) => {
+      setDeviceContext(context);
+      setRetryAttempts(WebGPUManager.getRetryAttempts());
+    });
 
-    const handleDeviceLost = async (info: GPUDeviceLostInfo) => {
-      console.warn('[useWebGPU] Device lost:', info.reason, info.message);
+    return unsubscribe;
+  }, []);
 
-      if (info.reason !== 'destroyed') {
-        // Attempt to recover
-        await reinitialize();
-      }
+  // Listen for fallback events
+  useEffect(() => {
+    const handleFallback = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.warn('[useWebGPU] Falling back to Canvas2D:', customEvent.detail);
+      setDeviceContext(null);
+      setError(new Error('GPU device lost after max retries'));
     };
 
-    deviceContext.device.lost.then(handleDeviceLost);
-  }, [deviceContext, reinitialize]);
+    window.addEventListener('webgpu-fallback', handleFallback);
+
+    return () => {
+      window.removeEventListener('webgpu-fallback', handleFallback);
+    };
+  }, []);
 
   return {
     deviceContext,
     isInitializing,
     error,
     isSupported,
+    retryAttempts,
     reinitialize
   };
 }
