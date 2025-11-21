@@ -1,0 +1,41 @@
+[
+  {
+    "contract_id": "01K8VFVJYBNX79A4QKRKV8W6GH",
+    "session_id": "session_full_test",
+    "contract_type": "REQUEST",
+    "from_agent": "orchestrator",
+    "to_agent": "agent_example_001",
+    "capability": "echo",
+    "payload": {
+      "text": "TraceOS is alive!"
+    },
+    "status": "completed",
+    "created_at": "2025-10-30T21:19:53.803856",
+    "completed_at": "2025-10-30T21:19:53.819688",
+    "result": {
+      "message": "Echo: TraceOS is alive!"
+    },
+    "error": null,
+    "metadata": {}
+  },
+  {
+    "contract_id": "01K8VFVJZ55F55QR80ARVCNEMH",
+    "session_id": "session_full_test",
+    "contract_type": "RESPONSE",
+    "from_agent": "agent_example_001",
+    "to_agent": "orchestrator",
+    "capability": null,
+    "payload": {
+      "success": true,
+      "data": {
+        "message": "Echo: TraceOS is alive!"
+      }
+    },
+    "status": "pending",
+    "created_at": "2025-10-30T21:19:53.829723",
+    "completed_at": null,
+    "result": null,
+    "error": null,
+    "metadata": {}
+  }
+]

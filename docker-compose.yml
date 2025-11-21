@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  tracememory:
+    build: ./tracememory
+    container_name: tracememory
+    ports:
+      - "8000:8000"
+    environment:
+      - TRACEMEMORY_ENV=production
+    networks:
+      - traceos
+
+  trace:
+    build: ./trace-wrapper
+    container_name: trace
+    ports:
+      - "8787:8787"
+    networks:
+      - traceos
+
+  orchestrator:
+    build: ./orchestrator
+    container_name: orchestrator
+    ports:
+      - "8888:8888"
+    depends_on:
+      - tracememory
+      - trace
+    environment:
+      - TRACEMEMORY_URL=http://tracememory:8000
+      - TRACE_URL=http://trace:8787
+    networks:
+      - traceos
+
+networks:
+  traceos:
+    driver: bridge

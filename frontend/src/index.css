@@ -1,0 +1,41 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f5f5f5;
+  overscroll-behavior: none;
+}
+
+.drawing-surface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+}
+
+.tool-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tool-info p {
+  margin: 0.25rem 0;
+}
+
+canvas {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#root {
+  -webkit-user-select: none;
+  user-select: none;
+}
