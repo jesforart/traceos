@@ -603,3 +603,283 @@ class MemoryStorage:
 
         finally:
             conn.close()
+
+    # ==============================================================================
+    # COGNITIVE KERNEL v2.5 - STORAGE METHODS (WITH RED TEAM FIXES)
+    # ==============================================================================
+
+    def run_cognitive_kernel_migration(self):
+        """
+        Run Cognitive Kernel v2.5 migration with RED TEAM fixes.
+
+        This is idempotent and safe to run multiple times.
+        """
+        from tracememory.storage.migrations.v2_5_cognitive_kernel import migrate_to_v2_5
+        migrate_to_v2_5(self)
+
+    # ---- Cognitive Memory Blocks ----
+
+    def save_cognitive_memory_block(self, block) -> str:
+        """
+        Save a Cognitive Kernel MemoryBlock to SQLite.
+
+        RED TEAM FIX #3: Enforces uniqueness via (session_id, artifact_id) constraint.
+
+        Args:
+            block: CognitiveMemoryBlock instance
+
+        Returns:
+            Block ID
+        """
+        conn = get_connection(self.db_path)
+        try:
+            conn.execute("""
+                INSERT OR REPLACE INTO cognitive_memory_blocks
+                (id, session_id, artifact_id, created_at, updated_at, ld_context,
+                 derived_from, intent_profile_id, style_dna_id, tags, notes, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                block.id, block.session_id, block.artifact_id,
+                block.created_at.isoformat(), block.updated_at.isoformat(),
+                orjson.dumps(block.ld_context).decode(),
+                block.derived_from, block.intent_profile_id, block.style_dna_id,
+                orjson.dumps(block.tags).decode(), block.notes,
+                orjson.dumps(block.metadata).decode()
+            ))
+            conn.commit()
+            logger.debug(f"Saved cognitive memory block: {block.id}")
+        finally:
+            conn.close()
+        return block.id
+
+    def get_cognitive_memory_block(self, block_id: str):
+        """Retrieve a Cognitive Memory Block (read-only, no lock needed)"""
+        from tracememory.models.memory import CognitiveMemoryBlock
+
+        conn = get_connection(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT * FROM cognitive_memory_blocks WHERE id = ?", (block_id,)
+            ).fetchone()
+
+            if not row:
+                return None
+
+            return CognitiveMemoryBlock(
+                id=row[0],
+                session_id=row[1],
+                artifact_id=row[2],
+                created_at=datetime.fromisoformat(row[3]),
+                updated_at=datetime.fromisoformat(row[4]),
+                ld_context=orjson.loads(row[5]),
+                derived_from=row[6],
+                intent_profile_id=row[7],
+                style_dna_id=row[8],
+                tags=orjson.loads(row[9]),
+                notes=row[10],
+                metadata=orjson.loads(row[11])
+            )
+        finally:
+            conn.close()
+
+    def get_cognitive_memory_block_by_artifact(
+        self,
+        session_id: str,
+        artifact_id: str
+    ):
+        """
+        Retrieve Cognitive Memory Block by (session_id, artifact_id) composite key.
+
+        RED TEAM FIX #3: Uses composite key for unambiguous retrieval.
+        """
+        from tracememory.models.memory import CognitiveMemoryBlock
+
+        conn = get_connection(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT * FROM cognitive_memory_blocks WHERE session_id = ? AND artifact_id = ?",
+                (session_id, artifact_id)
+            ).fetchone()
+
+            if not row:
+                return None
+
+            return CognitiveMemoryBlock(
+                id=row[0],
+                session_id=row[1],
+                artifact_id=row[2],
+                created_at=datetime.fromisoformat(row[3]),
+                updated_at=datetime.fromisoformat(row[4]),
+                ld_context=orjson.loads(row[5]),
+                derived_from=row[6],
+                intent_profile_id=row[7],
+                style_dna_id=row[8],
+                tags=orjson.loads(row[9]),
+                notes=row[10],
+                metadata=orjson.loads(row[11])
+            )
+        finally:
+            conn.close()
+
+    # ---- Style DNA ----
+
+    def save_style_dna(self, style) -> str:
+        """
+        Save StyleDNA with vectors as BLOBs.
+
+        RED TEAM FIX #4: Vectors validated before storage via Pydantic validators.
+        """
+        from tracememory.storage.migrations.v2_5_cognitive_kernel import vector_to_blob
+
+        conn = get_connection(self.db_path)
+        try:
+            # Convert vectors to blobs (validation happens in vector_to_blob)
+            stroke_blob = vector_to_blob(style.stroke_dna) if style.stroke_dna else None
+            image_blob = vector_to_blob(style.image_dna) if style.image_dna else None
+            temporal_blob = vector_to_blob(style.temporal_dna) if style.temporal_dna else None
+
+            conn.execute("""
+                INSERT OR REPLACE INTO style_dna
+                (id, artifact_id, stroke_dna, image_dna, temporal_dna, created_at, l2_norm, checksum)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                style.id, style.artifact_id,
+                stroke_blob, image_blob, temporal_blob,
+                style.created_at.isoformat(), style.l2_norm, style.checksum
+            ))
+            conn.commit()
+            logger.debug(f"Saved Style DNA: {style.id}")
+        finally:
+            conn.close()
+        return style.id
+
+    def get_style_dna(self, style_id: str):
+        """
+        Retrieve StyleDNA with vectors from BLOBs.
+
+        RED TEAM FIX #4: Vectors validated after loading via blob_to_vector.
+        """
+        from tracememory.models.memory import StyleDNA
+        from tracememory.storage.migrations.v2_5_cognitive_kernel import blob_to_vector
+
+        conn = get_connection(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT * FROM style_dna WHERE id = ?", (style_id,)
+            ).fetchone()
+
+            if not row:
+                return None
+
+            return StyleDNA(
+                id=row[0],
+                artifact_id=row[1],
+                stroke_dna=blob_to_vector(row[2]) if row[2] else None,
+                image_dna=blob_to_vector(row[3]) if row[3] else None,
+                temporal_dna=blob_to_vector(row[4]) if row[4] else None,
+                created_at=datetime.fromisoformat(row[5]),
+                l2_norm=row[6],
+                checksum=row[7]
+            )
+        finally:
+            conn.close()
+
+    # ---- Intent Profiles ----
+
+    def save_intent_profile(self, intent) -> str:
+        """Save IntentProfile to SQLite"""
+        conn = get_connection(self.db_path)
+        try:
+            conn.execute("""
+                INSERT OR REPLACE INTO intent_profiles
+                (id, session_id, artifact_id, emotional_register, target_audience,
+                 constraints, narrative_prompt, style_keywords, created_at, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                intent.id, intent.session_id, intent.artifact_id,
+                orjson.dumps(intent.emotional_register).decode(), intent.target_audience,
+                orjson.dumps(intent.constraints).decode(), intent.narrative_prompt,
+                orjson.dumps(intent.style_keywords).decode(),
+                intent.created_at.isoformat(), intent.source
+            ))
+            conn.commit()
+            logger.debug(f"Saved Intent Profile: {intent.id}")
+        finally:
+            conn.close()
+        return intent.id
+
+    def get_intent_profile(self, intent_id: str):
+        """Retrieve IntentProfile"""
+        from tracememory.models.memory import IntentProfile
+
+        conn = get_connection(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT * FROM intent_profiles WHERE id = ?", (intent_id,)
+            ).fetchone()
+
+            if not row:
+                return None
+
+            return IntentProfile(
+                id=row[0],
+                session_id=row[1],
+                artifact_id=row[2],
+                emotional_register=orjson.loads(row[3]),
+                target_audience=row[4],
+                constraints=orjson.loads(row[5]),
+                narrative_prompt=row[6],
+                style_keywords=orjson.loads(row[7]),
+                created_at=datetime.fromisoformat(row[8]),
+                source=row[9]
+            )
+        finally:
+            conn.close()
+
+    # ---- Telemetry Chunks ----
+
+    def save_telemetry_chunk(self, chunk) -> str:
+        """Save TelemetryChunk metadata"""
+        conn = get_connection(self.db_path)
+        try:
+            conn.execute("""
+                INSERT OR REPLACE INTO telemetry_chunks
+                (id, session_id, artifact_id, parquet_path, chunk_row_count,
+                 total_session_rows, created_at, schema_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                chunk.id, chunk.session_id, chunk.artifact_id,
+                chunk.parquet_path, chunk.chunk_row_count, chunk.total_session_rows,
+                chunk.created_at.isoformat(), chunk.schema_version
+            ))
+            conn.commit()
+            logger.debug(f"Saved Telemetry Chunk: {chunk.id}")
+        finally:
+            conn.close()
+        return chunk.id
+
+    def get_telemetry_chunk(self, chunk_id: str):
+        """Retrieve TelemetryChunk metadata"""
+        from tracememory.models.memory import TelemetryChunk
+
+        conn = get_connection(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT * FROM telemetry_chunks WHERE id = ?", (chunk_id,)
+            ).fetchone()
+
+            if not row:
+                return None
+
+            return TelemetryChunk(
+                id=row[0],
+                session_id=row[1],
+                artifact_id=row[2],
+                parquet_path=row[3],
+                chunk_row_count=row[4],
+                total_session_rows=row[5],
+                created_at=datetime.fromisoformat(row[6]),
+                schema_version=row[7]
+            )
+        finally:
+            conn.close()
