@@ -112,11 +112,54 @@ class TelemetryStore:
         """
         Close the Parquet writer for a session.
         Call this when a session ends to flush and release resources.
+
+        HARDENING v2.6 - Task 3: Explicit session lifecycle management.
         """
         if session_id in self._writers:
             self._writers[session_id].close()
             del self._writers[session_id]
             del self._row_counts[session_id]
+
+    def get_open_sessions(self) -> List[str]:
+        """
+        Get list of sessions with open Parquet writers.
+
+        HARDENING v2.6 - Task 3: Monitor open writers for leak detection.
+
+        Returns:
+            List of session IDs with open writers
+        """
+        return list(self._writers.keys())
+
+    def close_all_sessions(self):
+        """
+        Close all open Parquet writers.
+
+        HARDENING v2.6 - Task 3: Explicit cleanup, not relying on __del__.
+        Called during application shutdown.
+
+        This ensures:
+        - All Parquet files are properly finalized
+        - File handles are released
+        - No data loss on shutdown
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        open_count = len(self._writers)
+        if open_count > 0:
+            logger.info(f"🗂️  Closing {open_count} open Parquet writers...")
+
+            for session_id in list(self._writers.keys()):
+                try:
+                    self.close_session(session_id)
+                    logger.info(f"  ✓ Closed session: {session_id}")
+                except Exception as e:
+                    logger.warning(f"  ⚠️  Error closing session {session_id}: {e}")
+
+            logger.info(f"✓ All Parquet writers closed")
+        else:
+            logger.info("✓ No open Parquet writers to close")
 
     def load_strokes(self, chunk: TelemetryChunk) -> List[Dict]:
         """Load strokes from Parquet file"""

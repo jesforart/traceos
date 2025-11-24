@@ -3,13 +3,62 @@ Idempotent migration to Cognitive Kernel v2.5 with RED TEAM fixes.
 
 RED TEAM FIX #1: Migration idempotence with table signatures.
 This migration can be run multiple times safely without corrupting data.
+
+HARDENING v2.6 - Task 5: Enhanced error reporting and remediation guidance.
 """
 
 import hashlib
 import json
 import struct
+import logging
 from typing import Dict, List
 from tracememory.models.memory import STYLE_VECTOR_DIM
+
+logger = logging.getLogger(__name__)
+
+
+class MigrationSignatureMismatch(Exception):
+    """
+    Raised when table signature doesn't match expected.
+
+    HARDENING v2.6 - Task 5: Better error reporting for schema corruption.
+    """
+
+    def __init__(self, table_name: str, expected: str, actual: str):
+        self.table_name = table_name
+        self.expected = expected
+        self.actual = actual
+
+        message = f"""
+╔═══════════════════════════════════════════════════════════════════════╗
+║ ⚠️  MIGRATION SIGNATURE MISMATCH DETECTED                            ║
+╠═══════════════════════════════════════════════════════════════════════╣
+║                                                                       ║
+║  Table:    {table_name:<60} ║
+║  Expected: {expected[:60]:<60} ║
+║  Actual:   {actual[:60]:<60} ║
+║                                                                       ║
+║  This indicates:                                                      ║
+║  • Schema corruption or incomplete migration                         ║
+║  • Manual table modification                                         ║
+║  • Concurrent migration conflict                                     ║
+║                                                                       ║
+║  REMEDIATION OPTIONS:                                                 ║
+║                                                                       ║
+║  1. Verify schema (recommended):                                     ║
+║     python scripts/verify_schema.py {table_name:<42} ║
+║                                                                       ║
+║  2. Restore from backup:                                             ║
+║     cp backup/tracememory.db data/tracememory.db                      ║
+║                                                                       ║
+║  3. Drop and recreate table (DESTRUCTIVE):                           ║
+║     WARNING: This will delete all data in {table_name:<26} ║
+║     sqlite3 data/tracememory.db "DROP TABLE {table_name};"           ║
+║     Then re-run migration                                            ║
+║                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
+"""
+        super().__init__(message.strip())
 
 
 def compute_table_signature(table_name: str, schema_def: Dict) -> str:
@@ -155,14 +204,17 @@ def verify_table_signature(conn, table_name: str, expected_sig: str) -> bool:
     return False
 
 
-def migrate_to_v2_5(storage):
+def migrate_to_v2_5(storage, strict_signatures: bool = False):
     """
     Add tables for Cognitive Kernel v2.5 with idempotent safety.
 
     RED TEAM FIX #1: This migration can be run multiple times safely.
+    HARDENING v2.6 - Task 5: Enhanced signature verification with strict mode.
 
     Args:
         storage: MemoryStorage instance with get_connection() method
+        strict_signatures: If True, raise exception on signature mismatch
+                          If False, log warning and continue (default)
     """
     conn = storage.get_connection()
 
@@ -172,17 +224,41 @@ def migrate_to_v2_5(storage):
     # Check if already migrated to v2.5
     current = conn.execute("SELECT MAX(version) FROM schema_versions").fetchone()[0]
     if current and current >= 25:
-        print("✓ Already at v2.5 or higher")
+        logger.info("✓ Already at v2.5 or higher")
 
         # Verify all table signatures match
         all_valid = True
+        mismatches = []
+
         for table_name, config in TABLE_SCHEMAS.items():
             if not verify_table_signature(conn, table_name, config["signature"]):
-                print(f"⚠️  Warning: {table_name} signature mismatch - may need manual verification")
                 all_valid = False
+                mismatches.append(table_name)
 
-        if all_valid:
-            print("✓ All table signatures verified")
+                # Get actual signature for error reporting
+                row = conn.execute(
+                    "SELECT signature FROM table_signatures WHERE table_name = ?",
+                    (table_name,)
+                ).fetchone()
+                actual_sig = row[0] if row else "missing"
+
+                if strict_signatures:
+                    # HARDENING v2.6 - Task 5: Raise detailed exception
+                    raise MigrationSignatureMismatch(
+                        table_name,
+                        config["signature"],
+                        actual_sig
+                    )
+                else:
+                    logger.warning(f"⚠️  Warning: {table_name} signature mismatch")
+
+        if mismatches:
+            logger.warning(f"⚠️  Tables with signature mismatches: {', '.join(mismatches)}")
+            logger.warning(f"⚠️  Run with strict_signatures=True for detailed error information")
+            logger.warning(f"⚠️  Or use: python scripts/verify_schema.py data/tracememory.db")
+        elif all_valid:
+            logger.info("✓ All table signatures verified")
+
         return
 
     print("🔧 Migrating to v2.5 Cognitive Kernel...")

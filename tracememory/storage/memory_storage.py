@@ -613,9 +613,16 @@ class MemoryStorage:
         Run Cognitive Kernel v2.5 migration with RED TEAM fixes.
 
         This is idempotent and safe to run multiple times.
+
+        HARDENING v2.6 - Task 1: Uses interprocess lock to prevent
+        concurrent migrations from multiple workers/agents.
         """
         from tracememory.storage.migrations.v2_5_cognitive_kernel import migrate_to_v2_5
-        migrate_to_v2_5(self)
+        from tracememory.storage.migration_lock import MigrationLock
+
+        # HARDENING: Use interprocess lock for migration safety
+        with MigrationLock(str(self.db_path)):
+            migrate_to_v2_5(self)
 
     # ---- Cognitive Memory Blocks ----
 
@@ -758,9 +765,11 @@ class MemoryStorage:
         Retrieve StyleDNA with vectors from BLOBs.
 
         RED TEAM FIX #4: Vectors validated after loading via blob_to_vector.
+        HARDENING v2.6 - Task 4: Verifies checksum to detect corruption.
         """
         from tracememory.models.memory import StyleDNA
         from tracememory.storage.migrations.v2_5_cognitive_kernel import blob_to_vector
+        from tracememory.storage.vector_utils import verify_style_dna_checksum
 
         conn = get_connection(self.db_path)
         try:
@@ -771,15 +780,28 @@ class MemoryStorage:
             if not row:
                 return None
 
+            # Load vectors
+            stroke_dna = blob_to_vector(row[2]) if row[2] else None
+            image_dna = blob_to_vector(row[3]) if row[3] else None
+            temporal_dna = blob_to_vector(row[4]) if row[4] else None
+            checksum = row[7]
+
+            # HARDENING v2.6 - Task 4: Verify checksum if present
+            if checksum and not verify_style_dna_checksum(stroke_dna, image_dna, temporal_dna, checksum):
+                raise ValueError(
+                    f"StyleDNA checksum mismatch for {style_id} - "
+                    f"vector corruption detected! Expected checksum: {checksum}"
+                )
+
             return StyleDNA(
                 id=row[0],
                 artifact_id=row[1],
-                stroke_dna=blob_to_vector(row[2]) if row[2] else None,
-                image_dna=blob_to_vector(row[3]) if row[3] else None,
-                temporal_dna=blob_to_vector(row[4]) if row[4] else None,
+                stroke_dna=stroke_dna,
+                image_dna=image_dna,
+                temporal_dna=temporal_dna,
                 created_at=datetime.fromisoformat(row[5]),
                 l2_norm=row[6],
-                checksum=row[7]
+                checksum=checksum
             )
         finally:
             conn.close()

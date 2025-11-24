@@ -99,11 +99,19 @@ class DualDNAEngine:
         image_dna = self._compute_image_dna(image_data) if image_data is not None else None
         temporal_dna = self._compute_temporal_dna(strokes) if strokes else None
 
+        # HARDENING v2.6 - Task 4: Auto-generate checksum and L2 norm
+        from tracememory.storage.vector_utils import compute_style_dna_checksum, compute_l2_norm
+
+        checksum = compute_style_dna_checksum(stroke_dna, image_dna, temporal_dna)
+        l2_norm = compute_l2_norm(stroke_dna) if stroke_dna else None
+
         style = StyleDNA(
             artifact_id=artifact_id,
             stroke_dna=stroke_dna,
             image_dna=image_dna,
-            temporal_dna=temporal_dna
+            temporal_dna=temporal_dna,
+            l2_norm=l2_norm,
+            checksum=checksum
         )
         # Pydantic validators ensure 128-dim on construction
         style_dna_id = self.storage.save_style_dna(style)
