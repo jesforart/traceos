@@ -132,16 +132,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         TraceOSGlobals.memory_storage.run_cognitive_kernel_migration()
 
         # 3. Initialize TelemetryStore (v2.6 Task 3 - Parquet lifecycle)
+        # PyArrow is optional - if not available, skip telemetry store
         logger.info("🗂️  Initializing TelemetryStore...")
-        from tracememory.storage.telemetry_store import TelemetryStore
-        TraceOSGlobals.telemetry_store = TelemetryStore(base_path="data/telemetry")
+        try:
+            from tracememory.storage.telemetry_store import TelemetryStore
+            TraceOSGlobals.telemetry_store = TelemetryStore(base_path="data/telemetry")
+            logger.info("✓ TelemetryStore initialized")
+        except ImportError as e:
+            logger.warning(f"⚠️  TelemetryStore unavailable (missing pyarrow): {e}")
+            TraceOSGlobals.telemetry_store = None
 
         # 4. Initialize DualDNAEngine
         logger.info("🧬 Initializing DualDNAEngine...")
         from tracememory.dual_dna.engine import DualDNAEngine
         TraceOSGlobals.dual_dna_engine = DualDNAEngine(
             memory_storage=TraceOSGlobals.memory_storage,
-            telemetry_store=TraceOSGlobals.telemetry_store
+            telemetry_store=TraceOSGlobals.telemetry_store  # Can be None
         )
 
         # 5. Initialize GeminiCritic (v2.6 Task 2 - mock mode fallback)

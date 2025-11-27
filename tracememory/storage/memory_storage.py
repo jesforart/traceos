@@ -604,6 +604,18 @@ class MemoryStorage:
         finally:
             conn.close()
 
+    def get_connection(self) -> sqlite3.Connection:
+        """
+        Get SQLite connection to the memory database.
+
+        This is used by v2.5 migrations and other modules that need
+        direct database access.
+
+        Returns:
+            SQLite connection with WAL mode enabled
+        """
+        return get_connection(self.db_path)
+
     # ==============================================================================
     # COGNITIVE KERNEL v2.5 - STORAGE METHODS (WITH RED TEAM FIXES)
     # ==============================================================================

@@ -40,5 +40,5 @@ pytest>=7.4.0
 pytest-asyncio>=0.21.0
 
 # === Optional: PyArrow for Parquet (v2.6 Task 3) ===
-# Uncomment if using telemetry store
-# pyarrow>=14.0.0
+# Required by telemetry_store and dual_dna
+pyarrow>=14.0.0

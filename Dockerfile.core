@@ -25,10 +25,27 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Unified entry point
 COPY traceos/ ./traceos/
 
-# TraceMemory modules
+# TraceMemory - copy entire package
 COPY tracememory/ ./tracememory/
 
-# Orchestrator modules
+# TraceMemory - also copy internal modules to root for absolute imports
+COPY tracememory/models/ ./models/
+COPY tracememory/core/ ./core/
+COPY tracememory/storage/ ./storage/
+COPY tracememory/drawing/ ./drawing/
+COPY tracememory/calibration/ ./calibration/
+COPY tracememory/compression/ ./compression/
+COPY tracememory/critic/ ./critic/
+COPY tracememory/dual_dna/ ./dual_dna/
+COPY tracememory/modifiers/ ./modifiers/
+COPY tracememory/utils/ ./utils/
+COPY tracememory/api/ ./api/
+COPY tracememory/replay/ ./replay/
+COPY tracememory/svg_analyzer.py ./svg_analyzer.py
+COPY tracememory/svg_crud.py ./svg_crud.py
+COPY tracememory/config.py ./config.py
+
+# Orchestrator - copy entire package
 COPY orchestrator/ ./orchestrator/
 
 # Create data directories
