@@ -1,0 +1,63 @@
+# TraceOS Iron Monolith + v2.6 Hardening - Docker Compose
+# Reduced from 3 services to 2 services
+
+version: '3.8'
+
+services:
+  # === UNIFIED CORE (TraceMemory + Orchestrator merged) ===
+  traceos-core:
+    build:
+      context: .
+      dockerfile: Dockerfile.core
+    container_name: traceos-core
+    ports:
+      - "8000:8000"  # Single unified port
+    volumes:
+      - ./data:/app/data  # Persist SQLite database & Parquet files
+      - ./logs:/app/logs  # Log output
+    environment:
+      - TRACE_MCP_URL=http://trace-wrapper:8787
+      - LOG_LEVEL=INFO
+      # Optional: Gemini API key for critic (falls back to mock mode if not set)
+      # - GOOGLE_API_KEY=your_key_here
+      # Optional: Claude API key for compression
+      # - ANTHROPIC_API_KEY=your_key_here
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G  # Prevent OOM from sentence-transformers + PyTorch
+        reservations:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - traceos
+
+  # === MCP WRAPPER (Node.js - Stays Separate) ===
+  trace-wrapper:
+    build: ./trace-wrapper
+    container_name: trace-mcp-wrapper
+    ports:
+      - "8787:8787"
+    environment:
+      - TRACEOS_URL=http://traceos-core:8000
+    depends_on:
+      traceos-core:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - traceos
+
+networks:
+  traceos:
+    driver: bridge
+
+volumes:
+  traceos-data:
+    driver: local
