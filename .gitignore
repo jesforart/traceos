@@ -68,3 +68,4 @@ Cargo.lock
 
 # TypeScript
 *.tsbuildinfo
+.backup/
