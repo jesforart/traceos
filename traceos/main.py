@@ -154,7 +154,7 @@ except Exception as e:
 # Orchestrator routes (was port 8888) - mounted under /v1/orchestrate
 logger.info("🎭 Mounting Orchestrator routes...")
 try:
-    from orchestrator.orchestrator.routes import router as orchestrator_router
+    from orchestrator.routes import router as orchestrator_router
     app.include_router(
         orchestrator_router,
         prefix="/v1/orchestrate",

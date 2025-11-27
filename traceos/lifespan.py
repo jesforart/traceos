@@ -95,6 +95,56 @@ def _initialize_ai_pool(max_workers: int = 1) -> ProcessPoolExecutor:
     return pool
 
 
+def _check_and_vacuum_database(memory_storage) -> None:
+    """
+    Check database health and run vacuum if needed.
+
+    RED TEAM AUDIT FIX:
+    - Prevents WAL file growth in high-churn environments
+    - Runs incremental vacuum if agent_contracts > 10,000 rows
+    - Lightweight check (< 100ms)
+
+    Args:
+        memory_storage: MemoryStorage instance with database connection
+    """
+    import time
+    start_time = time.time()
+
+    try:
+        conn = memory_storage.get_connection()
+
+        # Check if agent_contracts table exists (may not in fresh installs)
+        table_check = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_contracts'"
+        ).fetchone()
+
+        if not table_check:
+            logger.debug("agent_contracts table not found, skipping vacuum check")
+            return
+
+        # Count agent_contracts rows
+        result = conn.execute("SELECT COUNT(*) FROM agent_contracts").fetchone()
+        contract_count = result[0] if result else 0
+
+        # Vacuum if we exceed threshold
+        if contract_count > 10000:
+            logger.info(f"📦 Database hygiene check: {contract_count} contracts found")
+            logger.info("   Running incremental vacuum to reclaim WAL space...")
+            conn.execute("PRAGMA incremental_vacuum;")
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            logger.info("   ✓ Vacuum complete")
+        else:
+            logger.debug(f"Database hygiene OK: {contract_count} contracts (< 10k threshold)")
+
+        conn.close()
+
+    except Exception as e:
+        logger.warning(f"⚠️  Database vacuum check failed (non-critical): {e}")
+
+    elapsed = (time.time() - start_time) * 1000
+    logger.debug(f"Vacuum check completed in {elapsed:.1f}ms")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -131,6 +181,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Run Cognitive Kernel migration with interprocess lock (v2.6 Task 1)
         TraceOSGlobals.memory_storage.run_cognitive_kernel_migration()
 
+        # 2.5. Database Hygiene Check (RED TEAM AUDIT FIX)
+        _check_and_vacuum_database(TraceOSGlobals.memory_storage)
+
         # 3. Initialize TelemetryStore (v2.6 Task 3 - Parquet lifecycle)
         # PyArrow is optional - if not available, skip telemetry store
         logger.info("🗂️  Initializing TelemetryStore...")
@@ -151,13 +204,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
 
         # 5. Initialize GeminiCritic (v2.6 Task 2 - mock mode fallback)
+        # RED TEAM AUDIT FIX: Verify API key from environment
         logger.info("🎨 Initializing GeminiCritic...")
+        import os
+        google_api_key = os.getenv("GOOGLE_API_KEY")
+
         from tracememory.critic.gemini_critic import GeminiCritic
         try:
-            TraceOSGlobals.critic = GeminiCritic(mock_mode=False)
-            logger.info("   ✓ Gemini API mode enabled")
+            if google_api_key:
+                TraceOSGlobals.critic = GeminiCritic(mock_mode=False)
+                logger.info("   ✓ Gemini API mode enabled (GOOGLE_API_KEY found)")
+            else:
+                logger.warning("   ⚠️  GOOGLE_API_KEY not set in environment")
+                logger.warning("   ⚠️  Critic will run in MOCK MODE")
+                logger.warning("   ⚠️  Set GOOGLE_API_KEY to enable real critique")
+                TraceOSGlobals.critic = GeminiCritic(mock_mode=True)
         except ValueError as e:
-            logger.warning(f"   ⚠️  Gemini API key not found: {e}")
+            logger.warning(f"   ⚠️  Gemini API initialization failed: {e}")
             logger.warning(f"   ⚠️  Falling back to MOCK MODE")
             TraceOSGlobals.critic = GeminiCritic(mock_mode=True)
 
