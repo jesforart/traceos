@@ -1,8 +1,6 @@
 # TraceOS Iron Monolith + v2.6 Hardening - Docker Compose
 # Reduced from 3 services to 2 services
 
-version: '3.8'
-
 services:
   # === UNIFIED CORE (TraceMemory + Orchestrator merged) ===
   traceos-core:
