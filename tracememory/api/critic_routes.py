@@ -1,12 +1,16 @@
 """
-Critic API routes for Cognitive Kernel v2.5
+Critic API routes for Cognitive Kernel v2.5 + Gut Valuation v3.0
 
 RED TEAM FIX #5: Structured JSON output from Gemini API.
+INTENT gut_taste_001: WebSocket endpoint for emotional state streaming.
 
-Provides aesthetic critique endpoints integrated with tri-state memory.
+Provides aesthetic critique endpoints integrated with tri-state memory,
+plus real-time Gut valuation for emotional state tracking.
+
+@organ valuation
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
@@ -14,6 +18,8 @@ import logging
 import base64
 
 from tracememory.critic.gemini_critic import GeminiCritic, AestheticCritique
+from tracememory.critic.gut_state import GutCritic
+from tracememory.critic.models.gut_state import GutState, ResonanceEvent
 from tracememory.storage.memory_storage import MemoryStorage
 from tracememory.dual_dna.engine import DualDNAEngine
 
@@ -26,6 +32,9 @@ router = APIRouter(prefix="/v1/critic", tags=["critic"])
 _critic: Optional[GeminiCritic] = None
 _memory_storage: Optional[MemoryStorage] = None
 _dual_dna_engine: Optional[DualDNAEngine] = None
+
+# Gut valuation instances (per-session)
+_gut_critics: Dict[str, GutCritic] = {}
 
 
 def get_critic() -> GeminiCritic:
@@ -64,6 +73,36 @@ def get_dual_dna_engine() -> DualDNAEngine:
         storage = get_memory_storage()
         _dual_dna_engine = DualDNAEngine(memory_storage=storage)
     return _dual_dna_engine
+
+
+def get_gut_critic(session_id: str) -> GutCritic:
+    """
+    Get or create GutCritic for a session.
+
+    Each session has its own GutCritic instance to maintain
+    separate emotional state per artist session.
+
+    SOVEREIGNTY: GutState is cleared on session end.
+    No cross-session mood persistence without consent.
+    """
+    global _gut_critics
+    if session_id not in _gut_critics:
+        _gut_critics[session_id] = GutCritic()
+        logger.info(f"[Gut] Created GutCritic for session: {session_id}")
+    return _gut_critics[session_id]
+
+
+def clear_gut_critic(session_id: str) -> None:
+    """
+    Clear GutCritic for a session.
+
+    Called on session end — no emotional surveillance.
+    """
+    global _gut_critics
+    if session_id in _gut_critics:
+        _gut_critics[session_id].clear()
+        del _gut_critics[session_id]
+        logger.info(f"[Gut] Cleared GutCritic for session: {session_id}")
 
 
 # Request/Response Models
@@ -338,4 +377,139 @@ async def health_check(
         "message": "Critic service operational" + (
             " (MOCK MODE - no API calls)" if critic.mock_mode else ""
         )
+    }
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# GUT VALUATION ENDPOINTS (intent_gut_taste_001)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+# Create a separate router for Gut endpoints (different prefix)
+gut_router = APIRouter(prefix="/v1/gut", tags=["gut"])
+
+
+@gut_router.websocket("/ws")
+async def gut_websocket(
+    websocket: WebSocket,
+    session: str = Query(..., description="Session ID")
+):
+    """
+    WebSocket endpoint for real-time emotional signal streaming.
+
+    The Gut listens here — it feels every interaction event
+    and responds with its current emotional state.
+
+    Protocol:
+    1. Client connects with ?session=<session_id>
+    2. Client sends: { "type": "resonance_batch", "events": [...] }
+    3. Server responds: { "type": "gut_state", "state": {...} }
+
+    Events are processed in batches for efficiency.
+    The Gut tastes each batch and shares how it feels.
+
+    SOVEREIGNTY: No validation here (handled by frontend).
+    Session cleanup clears GutState — no emotional surveillance.
+
+    @provenance intent_gut_taste_001
+    @organ valuation
+    """
+    await websocket.accept()
+    logger.info(f"[Gut] WebSocket connected for session: {session}")
+
+    # Get or create GutCritic for this session
+    critic = get_gut_critic(session)
+
+    try:
+        while True:
+            # Wait for messages from the frontend
+            msg = await websocket.receive_json()
+
+            if msg.get("type") == "resonance_batch":
+                events_data = msg.get("events", [])
+
+                if not events_data:
+                    continue
+
+                # Parse events
+                events = []
+                for e in events_data:
+                    try:
+                        # Convert camelCase to snake_case
+                        event = ResonanceEvent(
+                            type=e.get("type"),
+                            timestamp=e.get("timestamp"),
+                            session_id=e.get("sessionId", session),
+                            latency_ms=e.get("latencyMs"),
+                            erratic_input=e.get("erraticInput"),
+                            context=e.get("context")
+                        )
+                        events.append(event)
+                    except Exception as parse_error:
+                        logger.warning(f"[Gut] Failed to parse event: {parse_error}")
+
+                if events:
+                    # The Gut tastes this batch of interactions
+                    critic.ingest_batch(events)
+
+                    # Share how the Gut feels
+                    await websocket.send_json({
+                        "type": "gut_state",
+                        "state": critic.to_dict()
+                    })
+
+    except WebSocketDisconnect:
+        # Session ended — the Gut goes quiet
+        logger.info(f"[Gut] WebSocket disconnected for session: {session}")
+        # Note: Don't clear critic here — session might reconnect
+        # Clear on explicit session end or timeout
+    except Exception as e:
+        logger.error(f"[Gut] WebSocket error: {e}", exc_info=True)
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "error": str(e)
+            })
+        except:
+            pass
+
+
+@gut_router.get("/state")
+async def get_gut_state(
+    session: str = Query(..., description="Session ID")
+):
+    """
+    REST fallback for polling GutState.
+
+    Use the WebSocket endpoint for real-time updates.
+    This is a fallback for when WebSocket is unavailable.
+
+    @provenance intent_gut_taste_001
+    @organ valuation
+    """
+    critic = get_gut_critic(session)
+    return {
+        "status": "ok",
+        "session_id": session,
+        "state": critic.to_dict()
+    }
+
+
+@gut_router.post("/clear")
+async def clear_session_gut(
+    session: str = Query(..., description="Session ID")
+):
+    """
+    Clear GutState for a session.
+
+    Called on session end to ensure no emotional surveillance.
+    SOVEREIGNTY: Mood data cleared per requirements.
+
+    @provenance intent_gut_taste_001
+    @organ valuation
+    """
+    clear_gut_critic(session)
+    return {
+        "status": "ok",
+        "message": f"GutState cleared for session: {session}"
     }

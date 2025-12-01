@@ -151,6 +151,17 @@ try:
 except Exception as e:
     logger.error(f"   ❌ Failed to mount critic routes: {e}")
 
+# Gut valuation routes (v3.0 intent_gut_taste_001)
+try:
+    from tracememory.api.critic_routes import gut_router
+    app.include_router(
+        gut_router,
+        tags=["Gut"]
+    )
+    logger.info("   ✓ Gut valuation routes mounted (WebSocket + REST)")
+except Exception as e:
+    logger.error(f"   ❌ Failed to mount gut routes: {e}")
+
 # Orchestrator routes (was port 8888) - mounted under /v1/orchestrate
 logger.info("🎭 Mounting Orchestrator routes...")
 try:
