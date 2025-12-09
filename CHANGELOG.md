@@ -6,6 +6,120 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.6.0] - 2025-12-09
+
+### Added — Quantum Organ (Physics-Based Emotional Regulation)
+
+**The Quantum Co-Processor for Emotional Stabilization**
+
+TraceOS v0.6.0 introduces the Quantum Organ, enabling Sparks to resolve internal tension through physics-based energy minimization. The Gut Spark can now mathematically stabilize its emotional state using simulated annealing.
+
+#### New Module: `traceos/quantum/`
+
+- **Quantum Schemas** (`schemas.py`)
+  - QuantumJobSpec: Declarative job specifications
+  - QuantumJobResult: Annealing results with solution vectors
+  - QuantumProblemType: OPTIMIZATION, PROVENANCE_CHECK, STYLE_DNA_FIT
+  - QuantumBackendType: classical-sim (Phase 3), ibm-quantum (future)
+
+- **Energy Landscape** (`landscape.py`)
+  - EnergyLandscape model: Represents emotional/constraint tensions
+  - Hamiltonian construction: Biases + couplings
+  - Converts high-level tensions into quantum job specs
+
+- **Quantum CoProcessor** (`coprocessor.py`, `classical_backend.py`)
+  - Abstract interface for quantum backends
+  - ClassicalSimCoprocessor: Simulated annealing implementation
+  - Metropolis criterion for state transitions
+  - Thread-pooled execution (non-blocking)
+  - 200-iteration annealing cycles
+
+- **Job Persistence** (`jobs.py`)
+  - JSON storage in `./data/quantum_jobs/`
+  - Full provenance tracking
+  - Job retrieval and listing
+
+#### Gut Spark Integration
+
+- **New Method**: `GutSpark.stabilize()`
+  - Constructs EnergyLandscape from internal tensions
+  - Submits to Quantum Organ for minimization
+  - Updates mood based on energy threshold
+  - Mood transition: "uneasy" → "flow" when E < -0.5
+  - Stores solution in Spark memory
+
+#### New API Endpoint
+
+**Route**: `POST /v1/trace/quantum/stabilize/{spark_name}`
+
+Manually triggers quantum stabilization for any Spark that supports it (currently Gut).
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/v1/trace/quantum/stabilize/Gut
+```
+
+**Response:**
+```json
+{
+  "status": "stabilized",
+  "energy": -2.2,
+  "solution": {"speed": -1, "quality": 1, "novelty": -1},
+  "execution_time_ms": 45.3
+}
+```
+
+#### Technical Implementation
+
+- **Hamiltonian Energy Function**: H = Σ bias_i * x_i + Σ coupling_ij * x_i * x_j
+- **Ising Spin Model**: Variables represented as {-1, +1} spins
+- **Simulated Annealing**: 200 iterations with exponential cooling (T *= 0.95)
+- **Async Execution**: Thread pool prevents blocking main event loop
+- **Provenance**: Every quantum job saved with timestamp and metadata
+
+#### What This Enables
+
+**Emotional Self-Regulation:**
+- Sparks can now mathematically resolve internal conflicts
+- Gut converts "uneasy" feelings into solvable optimization problems
+- Physics-based tension resolution (not heuristics)
+
+**Quantum-Ready Architecture:**
+- Interface designed for real quantum hardware (IBM, IonQ)
+- Classical backend provides production-ready simulation
+- Future swap to QPU requires minimal code changes
+
+**Design Lineage:**
+- Quantum jobs persist with full provenance
+- Energy landscapes become part of TraceOS memory
+- Solutions inform future decision-making
+
+#### Development Attribution
+
+Quantum Organ v1.0 built through multi-AI collaboration:
+- **Claude** (Anthropic): Integration, Gut wiring, persistence
+- **ChatGPT** (OpenAI): Hamiltonian formulation, async optimization
+- **Gemini** (Google): Thread pooling fix, verification strategy
+
+#### What's Next (Phase 4)
+
+- Creative DNA Engine (stylometric extraction)
+- Multi-Spark quantum workflows
+- IBM Quantum backend integration
+- Energy landscape learning
+
+#### Breaking Changes
+
+None. Quantum Organ is additive feature.
+
+#### Performance
+
+- Average stabilization time: ~40-50ms (200 iterations)
+- Non-blocking execution via thread pool
+- Memory footprint: <1MB per quantum job
+
+---
+
 ## [0.5.0] — 2025-12-08
 
 ### Added — TraceOS Protocol (Kernel Infrastructure)

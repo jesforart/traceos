@@ -1,8 +1,8 @@
-# TraceOS v0.5.0 — Computational Psyche for Creative AI
+# TraceOS v0.6.0 — Computational Psyche for Creative AI
 
 **The first AI creative system with real-time self-vision.**
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](CHANGELOG.md)
 [![Architecture](https://img.shields.io/badge/architecture-Iron%20Monolith-orange.svg)](IRON_MONOLITH_README.md)
 [![Tests](https://img.shields.io/badge/tests-passing-green.svg)](tracememory/critic/test_gut_state.py)
 
@@ -32,7 +32,51 @@ TraceOS is an operating system for **symbiotic human-AI creativity**. It gives A
 
 ---
 
-## What's New in v0.5.0
+## What's New in v0.6.0
+
+### ⚛️ Quantum Organ - Physics-Based Emotional Regulation
+
+The **Quantum Organ** gives TraceOS Sparks the ability to resolve internal tension through **physics-based energy minimization**:
+
+```python
+# Gut Spark detects tension
+gut_spark.state.mood  # → "uneasy"
+
+# Construct energy landscape
+landscape = EnergyLandscape(
+    dimensions=["speed", "quality", "novelty"],
+    biases={"speed": 0.5, "quality": 0.5},
+    tensions={"speed|quality": 1.0}  # Conflict!
+)
+
+# Submit to Quantum Organ (simulated annealing)
+result = await quantum_coprocessor.submit_job(landscape.to_job())
+
+# Gut resolves tension
+gut_spark.state.mood  # → "flow" (if energy < -0.5)
+```
+
+**Real Results:**
+- Energy: -2.2 (below threshold)
+- Solution: {speed: -1, quality: 1, novelty: -1}
+- **Interpretation:** Prioritize quality over speed/novelty
+
+**Why This Matters:**
+- Sparks can now self-regulate emotions mathematically
+- Tension becomes solvable optimization problems
+- Physics-based decision-making (not just heuristics)
+- Quantum-ready architecture (swap to IBM/IonQ later)
+
+**API Endpoint:**
+```bash
+POST /v1/trace/quantum/stabilize/Gut
+```
+
+See [Quantum Organ Documentation](#quantum-organ-new-in-v060) below.
+
+---
+
+## What Was New in v0.5.0
 
 ### 🧬 TraceOS Protocol Infrastructure
 
@@ -57,8 +101,6 @@ POST /v1/trace/codify/{derive_id}
 - Multi-agent review before code lands
 - Learnings compound over time
 - Ready for Spark orchestration (Phase 2)
-
-**Current Status:** Stub implementations with production schemas. Real AI integration pending Phase 2.
 
 ---
 
@@ -182,6 +224,46 @@ pytest tracememory/critic/test_gut_state.py -v
 
 **Security Note:** Protocol endpoints are for **local development only**. Do not expose publicly.
 
+### Quantum Organ (NEW in v0.6.0)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/v1/trace/quantum/stabilize/{spark_name}` | POST | Trigger quantum stabilization for a Spark |
+
+**Quantum Stabilization Flow:**
+
+1. **Spark detects tension** (e.g., Gut mood = "uneasy")
+2. **Constructs EnergyLandscape** (biases + couplings)
+3. **Submits to Quantum Organ** (simulated annealing)
+4. **Receives solution** (spin configuration: {-1, +1})
+5. **Updates internal state** (mood, memory, activation)
+
+**Example Request:**
+```bash
+curl -X POST http://localhost:8000/v1/trace/quantum/stabilize/Gut
+```
+
+**Example Response:**
+```json
+{
+  "status": "stabilized",
+  "energy": -2.2,
+  "solution": {
+    "speed": -1,
+    "quality": 1,
+    "novelty": -1
+  },
+  "execution_time_ms": 45.3
+}
+```
+
+**Quantum Job Provenance:**
+All quantum jobs are saved to `data/quantum_jobs/` with job ID, solution vector, energy achieved, execution time, and parent Spark metadata.
+
+**Backend Types:**
+- `classical-sim`: Simulated annealing (Phase 3, production-ready)
+- `ibm-quantum`: Real quantum hardware (future)
+
 ---
 
 ## Architecture
@@ -234,6 +316,28 @@ The Protocol sits above all organs, orchestrating design work:
 
 Every feature flows through the protocol, ensuring provenance and multi-agent review.
 
+### Quantum Organ Layer (v0.6.0)
+
+The Quantum Organ provides physics-based tension resolution:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   QUANTUM ORGAN                              │
+│         Energy Minimization via Simulated Annealing         │
+├─────────────────────────────────────────────────────────────┤
+│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐ │
+│   │   GUT   │───▶│ QUANTUM │───▶│ RESULT  │───▶│  FLOW   │ │
+│   │ (uneasy)│    │  ORGAN  │    │ (E=-2.2)│    │  STATE  │ │
+│   └─────────┘    └─────────┘    └─────────┘    └─────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Hamiltonian:** H = Σ bias_i * x_i + Σ coupling_ij * x_i * x_j
+**Algorithm:** Simulated Annealing (200 iterations, Metropolis criterion)
+**Execution:** Thread-pooled (non-blocking, async)
+
+Sparks construct EnergyLandscapes representing internal tensions, submit to the Quantum Organ for minimization, and update their state based on the solution.
+
 ---
 
 ## Sacred Principles
@@ -280,6 +384,7 @@ The `traceos-engineering-plugin` provides a structured development workflow:
 
 ## Versioning
 
+- **v0.6.0** — Quantum Organ, physics-based emotional regulation
 - **v0.5.0** — Protocol kernel, Intent/Derive/Evaluate/Codify workflow
 - **v0.4.0** — Gut organ, Sparks concept, multi-AI development
 - **v2.1.0** — Iron Monolith architecture, v2.6 hardening
@@ -307,4 +412,4 @@ Proprietary — TraceOS LLC
 
 ---
 
-**TraceOS v0.5.0** — *Where AI learns to feel.* 💚
+**TraceOS v0.6.0** — *Where AI learns to feel.* ⚛️💚

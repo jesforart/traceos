@@ -292,3 +292,40 @@ async def get_codification(derive_id: str):
     if not codification:
         raise HTTPException(status_code=404, detail=f"Codification for {derive_id} not found")
     return codification
+
+
+# ============================
+# QUANTUM ROUTES
+# ============================
+
+@router.post("/quantum/stabilize/{spark_name}", tags=["Quantum"])
+async def quantum_stabilize(spark_name: str):
+    """
+    Manually trigger quantum stabilization for a Spark.
+
+    Currently only GutSpark supports stabilization via the Quantum Organ.
+    Future Sparks may implement their own stabilization methods.
+
+    Args:
+        spark_name: Name of the Spark to stabilize (e.g., "Gut")
+
+    Returns:
+        Stabilization result with energy and solution
+
+    Raises:
+        404: Spark not found
+    """
+    from traceos.sparks.registry import registry
+
+    spark = registry.get(spark_name)
+    if not spark:
+        raise HTTPException(status_code=404, detail=f"Spark '{spark_name}' not found")
+
+    if not hasattr(spark, "stabilize"):
+        return {
+            "error": f"Spark '{spark_name}' does not support quantum stabilization",
+            "available_sparks": [s.metadata.name for s in registry.get_all() if hasattr(s, "stabilize")]
+        }
+
+    result = await spark.stabilize()
+    return result
