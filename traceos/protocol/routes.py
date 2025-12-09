@@ -1,0 +1,294 @@
+"""
+TraceOS Protocol API Routes
+
+FastAPI router for /v1/trace/* endpoints.
+
+Security Warning: These endpoints allow protocol-level operations.
+Intended for LOCAL DEVELOPMENT ONLY.
+
+@provenance traceos_protocol_v1
+@organ kernel
+"""
+
+import logging
+from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
+
+from .schemas import Intent, DeriveOutput, EvaluateOutput, CodifyOutput
+from .persistence import ProtocolStorage
+from .intent import IntentHandler
+from .derive import DeriveHandler
+from .evaluate import EvaluateHandler
+from .codify import CodifyHandler
+
+logger = logging.getLogger(__name__)
+
+# Initialize router
+router = APIRouter()
+
+# Initialize storage (will be injected via dependency in production)
+storage = ProtocolStorage()
+
+# Initialize handlers
+intent_handler = IntentHandler(storage)
+derive_handler = DeriveHandler(storage)
+evaluate_handler = EvaluateHandler(storage)
+codify_handler = CodifyHandler(storage)
+
+
+# ============================
+# REQUEST MODELS
+# ============================
+
+class IntentRequest(BaseModel):
+    """Request body for creating an intent."""
+    title: str
+    goals: List[str]
+    tags: Optional[List[str]] = None
+    spark: str = "Brain"
+
+
+# ============================
+# INTENT ROUTES
+# ============================
+
+@router.post("/intent", response_model=Intent, tags=["Protocol"])
+async def trace_intent(request: IntentRequest):
+    """
+    Create a new design intent.
+
+    This is the entry point for all TraceOS development work.
+    Every feature starts with an intent.
+
+    Example:
+        POST /v1/trace/intent
+        {
+            "title": "Implement quantum architecture",
+            "goals": ["Create QuantumCoProcessor", "Refactor Gut"],
+            "tags": ["quantum", "gut-spark"],
+            "spark": "Brain"
+        }
+
+    Returns:
+        Intent object with generated intent_id
+    """
+    try:
+        intent = intent_handler.create_intent(
+            title=request.title,
+            goals=request.goals,
+            tags=request.tags or [],
+            spark=request.spark
+        )
+        return intent
+    except Exception as e:
+        logger.error(f"Failed to create intent: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/intent/{intent_id}", response_model=Intent, tags=["Protocol"])
+async def get_intent(intent_id: str):
+    """
+    Retrieve an intent by ID.
+
+    Args:
+        intent_id: Intent identifier
+
+    Returns:
+        Intent object
+
+    Raises:
+        404: Intent not found
+    """
+    intent = intent_handler.get_intent(intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail=f"Intent {intent_id} not found")
+    return intent
+
+
+@router.get("/intents", response_model=List[Intent], tags=["Protocol"])
+async def list_intents(tags: Optional[List[str]] = Query(None)):
+    """
+    List all intents, optionally filtered by tags.
+
+    Args:
+        tags: Optional tag filter (comma-separated)
+
+    Returns:
+        List of matching intents
+    """
+    return intent_handler.list_intents(tags=tags)
+
+
+# ============================
+# DERIVE ROUTES
+# ============================
+
+@router.post("/derive/{intent_id}", response_model=DeriveOutput, tags=["Protocol"])
+async def trace_derive(intent_id: str):
+    """
+    Derive implementation from an intent.
+
+    NOTE: Currently uses STUB implementation.
+    Real code generation requires AI workstation (Phase 2+).
+
+    Args:
+        intent_id: Intent to derive from
+
+    Returns:
+        DeriveOutput with file manifest and provenance
+
+    Raises:
+        404: Intent not found
+    """
+    # Get intent
+    intent = intent_handler.get_intent(intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail=f"Intent {intent_id} not found")
+
+    try:
+        # Derive (currently stub)
+        output = derive_handler.derive(intent)
+        return output
+    except Exception as e:
+        logger.error(f"Failed to derive from {intent_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/derive/{derive_id}", response_model=DeriveOutput, tags=["Protocol"])
+async def get_derivation(derive_id: str):
+    """
+    Get a previously saved derivation.
+
+    Args:
+        derive_id: Derivation identifier
+
+    Returns:
+        DeriveOutput object
+
+    Raises:
+        404: Derivation not found
+    """
+    derivation = derive_handler.get_derivation(derive_id)
+    if not derivation:
+        raise HTTPException(status_code=404, detail=f"Derivation {derive_id} not found")
+    return derivation
+
+
+# ============================
+# EVALUATE ROUTES
+# ============================
+
+@router.post("/evaluate/{derive_id}", response_model=EvaluateOutput, tags=["Protocol"])
+async def trace_evaluate(derive_id: str):
+    """
+    Multi-Spark evaluation of derived implementation.
+
+    NOTE: Currently uses STUB Spark reviews.
+    Real reviews require trained Sparks (Phase 2+).
+
+    Reviews from:
+    - Brain: Logic, correctness, patterns
+    - Gut: UX, vibe, TraceOS feel
+    - Eyes: Visual clarity, diagrams
+    - Soul: Values, identity alignment
+
+    Args:
+        derive_id: Derivation to evaluate
+
+    Returns:
+        EvaluateOutput with multi-Spark reviews
+
+    Raises:
+        404: Derivation not found
+    """
+    # Load existing derivation (do NOT re-derive!)
+    derivation = derive_handler.get_derivation(derive_id)
+    if not derivation:
+        raise HTTPException(status_code=404, detail=f"Derivation {derive_id} not found")
+
+    try:
+        # Evaluate (currently stub reviews)
+        output = evaluate_handler.evaluate(derivation)
+        return output
+    except Exception as e:
+        logger.error(f"Failed to evaluate {derive_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/evaluate/{derive_id}", response_model=EvaluateOutput, tags=["Protocol"])
+async def get_evaluation(derive_id: str):
+    """
+    Get a previously saved evaluation.
+
+    Args:
+        derive_id: Derivation identifier
+
+    Returns:
+        EvaluateOutput object
+
+    Raises:
+        404: Evaluation not found
+    """
+    evaluation = evaluate_handler.get_evaluation(derive_id)
+    if not evaluation:
+        raise HTTPException(status_code=404, detail=f"Evaluation for {derive_id} not found")
+    return evaluation
+
+
+# ============================
+# CODIFY ROUTES
+# ============================
+
+@router.post("/codify/{derive_id}", response_model=CodifyOutput, tags=["Protocol"])
+async def trace_codify(derive_id: str):
+    """
+    Capture learnings into design DNA.
+
+    Updates the Double DNA Engine with patterns and lessons
+    discovered during implementation.
+
+    TODO (Phase 2+): Wire to real Double DNA Engine
+
+    Args:
+        derive_id: Derivation to codify
+
+    Returns:
+        CodifyOutput with captured learnings
+
+    Raises:
+        404: Evaluation not found
+    """
+    # Load existing evaluation (do NOT re-evaluate!)
+    evaluation = evaluate_handler.get_evaluation(derive_id)
+    if not evaluation:
+        raise HTTPException(status_code=404, detail=f"Evaluation for {derive_id} not found")
+
+    try:
+        # Codify learnings
+        output = codify_handler.codify(evaluation)
+        return output
+    except Exception as e:
+        logger.error(f"Failed to codify {derive_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/codify/{derive_id}", response_model=CodifyOutput, tags=["Protocol"])
+async def get_codification(derive_id: str):
+    """
+    Get a previously saved codification.
+
+    Args:
+        derive_id: Derivation identifier
+
+    Returns:
+        CodifyOutput object
+
+    Raises:
+        404: Codification not found
+    """
+    codification = codify_handler.get_codification(derive_id)
+    if not codification:
+        raise HTTPException(status_code=404, detail=f"Codification for {derive_id} not found")
+    return codification

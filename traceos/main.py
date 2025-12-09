@@ -175,6 +175,19 @@ try:
 except Exception as e:
     logger.error(f"   ❌ Failed to mount orchestrator routes: {e}")
 
+# TraceOS Protocol routes (Intent → Derive → Evaluate → Codify)
+logger.info("🔧 Mounting Protocol routes...")
+try:
+    from traceos.protocol.routes import router as protocol_router
+    app.include_router(
+        protocol_router,
+        prefix="/v1/trace",
+        tags=["Protocol"]
+    )
+    logger.info("   ✓ Protocol routes mounted (/v1/trace/*)")
+except Exception as e:
+    logger.error(f"   ❌ Failed to mount protocol routes: {e}")
+
 
 # === HEALTH CHECK ENDPOINTS ===
 @app.get("/", tags=["Health"])

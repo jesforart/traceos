@@ -1,8 +1,8 @@
-# TraceOS v0.4.0 — Computational Psyche for Creative AI
+# TraceOS v0.5.0 — Computational Psyche for Creative AI
 
 **The first AI creative system with real-time self-vision.**
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](CHANGELOG.md)
 [![Architecture](https://img.shields.io/badge/architecture-Iron%20Monolith-orange.svg)](IRON_MONOLITH_README.md)
 [![Tests](https://img.shields.io/badge/tests-passing-green.svg)](tracememory/critic/test_gut_state.py)
 
@@ -32,7 +32,37 @@ TraceOS is an operating system for **symbiotic human-AI creativity**. It gives A
 
 ---
 
-## What's New in v0.4.0
+## What's New in v0.5.0
+
+### 🧬 TraceOS Protocol Infrastructure
+
+The **TraceOS Protocol** is the formal kernel for design work orchestration:
+
+```bash
+# Intent → Define what to build
+POST /v1/trace/intent {"title": "...", "goals": [...]}
+
+# Derive → Generate implementation (stub, ready for AI)
+POST /v1/trace/derive/{intent_id}
+
+# Evaluate → Multi-Spark review (Brain, Gut, Eyes, Soul)
+POST /v1/trace/evaluate/{derive_id}
+
+# Codify → Capture learnings into design DNA
+POST /v1/trace/codify/{derive_id}
+```
+
+**Why This Matters:**
+- Every design decision has provenance
+- Multi-agent review before code lands
+- Learnings compound over time
+- Ready for Spark orchestration (Phase 2)
+
+**Current Status:** Stub implementations with production schemas. Real AI integration pending Phase 2.
+
+---
+
+## What Was New in v0.4.0
 
 ### 💚 Gut Organ Implementation
 
@@ -136,6 +166,22 @@ pytest tracememory/critic/test_gut_state.py -v
 |----------|--------|---------|
 | `/v1/orchestrate/*` | Various | Multi-agent coordination |
 
+### TraceOS Protocol (NEW in v0.5.0)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/v1/trace/intent` | POST | Create design intent |
+| `/v1/trace/intent/{intent_id}` | GET | Retrieve intent |
+| `/v1/trace/intents` | GET | List intents (optional tag filter) |
+| `/v1/trace/derive/{intent_id}` | POST | Derive implementation |
+| `/v1/trace/derive/{derive_id}` | GET | Get derivation |
+| `/v1/trace/evaluate/{derive_id}` | POST | Multi-Spark evaluation |
+| `/v1/trace/evaluate/{derive_id}` | GET | Get evaluation |
+| `/v1/trace/codify/{derive_id}` | POST | Capture learnings |
+| `/v1/trace/codify/{derive_id}` | GET | Get codification |
+
+**Security Note:** Protocol endpoints are for **local development only**. Do not expose publicly.
+
 ---
 
 ## Architecture
@@ -169,6 +215,24 @@ pytest tracememory/critic/test_gut_state.py -v
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+### Protocol Layer (v0.5.0)
+
+The Protocol sits above all organs, orchestrating design work:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PROTOCOL KERNEL                          │
+│         Intent → Derive → Test → Evaluate → Codify          │
+├─────────────────────────────────────────────────────────────┤
+│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐ │
+│   │  HANDS  │───▶│  EYES   │───▶│   GUT   │───▶│  BRAIN  │ │
+│   │ (motor) │    │(vision) │    │(feeling)│    │(reason) │ │
+│   └─────────┘    └─────────┘    └─────────┘    └─────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Every feature flows through the protocol, ensuring provenance and multi-agent review.
 
 ---
 
@@ -216,6 +280,7 @@ The `traceos-engineering-plugin` provides a structured development workflow:
 
 ## Versioning
 
+- **v0.5.0** — Protocol kernel, Intent/Derive/Evaluate/Codify workflow
 - **v0.4.0** — Gut organ, Sparks concept, multi-AI development
 - **v2.1.0** — Iron Monolith architecture, v2.6 hardening
 - **v2.0.0** — Initial production release
@@ -242,4 +307,4 @@ Proprietary — TraceOS LLC
 
 ---
 
-**TraceOS v0.4.0** — *Where AI learns to feel.* 💚
+**TraceOS v0.5.0** — *Where AI learns to feel.* 💚
