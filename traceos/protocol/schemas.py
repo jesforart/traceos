@@ -110,12 +110,13 @@ class SparkComment(BaseModel):
 
 class SparkReview(BaseModel):
     """
-    Review from a single Spark (Brain, Gut, Eyes, Soul, Dream).
+    Review from a single Spark (Brain, Gut, Eyes, Soul, Dream, Hands).
 
     Phase 2+: Real Spark organs with persistent state.
     Phase 4: Added Dream spark for long-term consolidation.
+    Phase 5: Added Hands spark for somatic expression.
     """
-    spark: Literal["Brain", "Gut", "Eyes", "Soul", "Dream"]
+    spark: Literal["Brain", "Gut", "Eyes", "Soul", "Dream", "Hands"]
     status: Literal["approve", "approve-with-changes", "reject"]
     score: float = Field(..., ge=0.0, le=1.0, description="Review score 0-1")
     comments: List[SparkComment] = Field(default_factory=list)

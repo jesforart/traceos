@@ -1,7 +1,9 @@
 """
 TraceOS Core Organs
 
-Brain, Gut, Eyes, Soul, Dream - The five pillars of TraceOS cognition.
+Brain, Gut, Eyes, Soul, Dream, Hands - The six pillars of TraceOS.
+
+Phase 5: Added Hands (somatic organ for motor expression).
 
 @provenance traceos_sparks_v1
 """
@@ -11,5 +13,6 @@ from .gut import GutSpark
 from .eyes import EyesSpark
 from .soul import SoulSpark
 from .dream import DreamSpark
+from .hands import HandsSpark
 
-__all__ = ["BrainSpark", "GutSpark", "EyesSpark", "SoulSpark", "DreamSpark"]
+__all__ = ["BrainSpark", "GutSpark", "EyesSpark", "SoulSpark", "DreamSpark", "HandsSpark"]

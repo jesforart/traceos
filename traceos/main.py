@@ -188,6 +188,18 @@ try:
 except Exception as e:
     logger.error(f"   ❌ Failed to mount protocol routes: {e}")
 
+# TraceOS Hands routes (Phase 5 - Somatic Expression)
+logger.info("✋ Mounting Hands routes...")
+try:
+    from traceos.hands.routes import router as hands_router
+    app.include_router(
+        hands_router,
+        tags=["Hands"]
+    )
+    logger.info("   ✓ Hands routes mounted (/v1/hands/*)")
+except Exception as e:
+    logger.error(f"   ❌ Failed to mount hands routes: {e}")
+
 
 # === HEALTH CHECK ENDPOINTS ===
 @app.get("/", tags=["Health"])

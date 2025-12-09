@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 class SparkMetadata(BaseModel):
     """Metadata describing a Spark organ."""
     name: str
-    organ_type: Literal["cognitive", "affective", "visual", "identity"]
+    organ_type: Literal["cognitive", "affective", "visual", "identity", "somatic"]
     description: str
     version: str = "1.0"
 
