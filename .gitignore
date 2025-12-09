@@ -69,3 +69,6 @@ Cargo.lock
 # TypeScript
 *.tsbuildinfo
 .backup/
+
+# TraceOS Protocol Data (local development only)
+data/protocol/
