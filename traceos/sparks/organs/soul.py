@@ -2,6 +2,7 @@
 Soul Spark - Identity Organ
 
 Focus: Provenance, brand alignment, identity coherence.
+Phase 4: Now checks DNA baseline for identity alignment.
 
 @provenance traceos_sparks_v1
 @organ identity
@@ -23,6 +24,7 @@ class SoulSpark(SparkBase):
     - Provenance node validation
     - TraceOS brand alignment
     - Identity markers in code
+    - DNA baseline presence (Phase 4)
     """
 
     def _define_metadata(self) -> SparkMetadata:
@@ -34,11 +36,15 @@ class SoulSpark(SparkBase):
         )
 
     def evaluate(self, derivation: DeriveOutput) -> SparkReview:
-        """Evaluate identity coherence and provenance."""
+        """
+        Evaluate identity coherence and provenance.
+
+        Phase 4: Now checks DNA baseline for identity alignment.
+        """
         score = 0.8  # Baseline positive (Soul is optimistic)
         comments = []
 
-        # Check provenance node exists
+        # Provenance checks
         if derivation.provenance and derivation.provenance.node_id:
             comments.append(SparkComment(
                 severity="info",
@@ -52,9 +58,8 @@ class SoulSpark(SparkBase):
             ))
             score -= 0.3
 
-        # Check for TraceOS branding in notes/files
+        # Check for TraceOS branding in notes
         notes_lower = derivation.notes.lower()
-
         identity_markers = ["traceos", "spark", "organism", "provenance", "dna"]
         found_markers = [m for m in identity_markers if m in notes_lower]
 
@@ -65,10 +70,28 @@ class SoulSpark(SparkBase):
             ))
             score += 0.05
 
+        # DNA alignment check (NEW FOR PHASE 4)
+        # Import here to avoid circular imports
+        from traceos.dna.store import DNAStore
+        dna_store = DNAStore()
+        latest_sig = dna_store.get_latest_signature()
+
+        if latest_sig:
+            comments.append(SparkComment(
+                severity="info",
+                message=f"Creative DNA baseline present (latest={latest_sig.signature_id})"
+            ))
+            score += 0.05
+        else:
+            comments.append(SparkComment(
+                severity="low",
+                message="No creative DNA baseline found yet"
+            ))
+
         # Update Soul state
         identity_strength = score
         self.update_state(
-            activation=0.95,  # Soul is always highly active
+            activation=0.95,
             memory={"identity_strength": identity_strength}
         )
 

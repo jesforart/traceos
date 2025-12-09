@@ -23,6 +23,10 @@ from .derive import DeriveHandler
 from .evaluate import EvaluateHandler
 from .codify import CodifyHandler
 
+# DNA imports (Phase 4)
+from traceos.dna.store import DNAStore
+from traceos.dna.schemas import StyleSignature
+
 logger = logging.getLogger(__name__)
 
 # Initialize router
@@ -31,11 +35,14 @@ router = APIRouter()
 # Initialize storage (will be injected via dependency in production)
 storage = ProtocolStorage()
 
+# Initialize DNA store (Phase 4)
+dna_store = DNAStore()
+
 # Initialize handlers
 intent_handler = IntentHandler(storage)
 derive_handler = DeriveHandler(storage)
 evaluate_handler = EvaluateHandler(storage)
-codify_handler = CodifyHandler(storage)
+codify_handler = CodifyHandler(storage, dna_store=dna_store)  # RED TEAM FIX: pass dna_store
 
 
 # ============================
@@ -244,30 +251,36 @@ async def get_evaluation(derive_id: str):
 @router.post("/codify/{derive_id}", response_model=CodifyOutput, tags=["Protocol"])
 async def trace_codify(derive_id: str):
     """
-    Capture learnings into design DNA.
+    Capture learnings and Creative DNA for an existing derivation.
 
-    Updates the Double DNA Engine with patterns and lessons
-    discovered during implementation.
-
-    TODO (Phase 2+): Wire to real Double DNA Engine
+    RED TEAM FIX: DO NOT re-run derive() or evaluate()!
+    Load the previously saved artifacts.
 
     Args:
-        derive_id: Derivation to codify
+        derive_id: ID of existing derivation
 
     Returns:
-        CodifyOutput with captured learnings
-
-    Raises:
-        404: Evaluation not found
+        CodifyOutput with patterns, lessons, and DNA signature
     """
-    # Load existing evaluation (do NOT re-evaluate!)
+    # 1. Load existing derivation (RED TEAM FIX: no re-derivation!)
+    derivation = derive_handler.get_derivation(derive_id)
+    if not derivation:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Derivation {derive_id} not found"
+        )
+
+    # 2. Load existing evaluation (RED TEAM FIX: no re-evaluation!)
     evaluation = evaluate_handler.get_evaluation(derive_id)
     if not evaluation:
-        raise HTTPException(status_code=404, detail=f"Evaluation for {derive_id} not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Evaluation for {derive_id} not found. Run evaluate first."
+        )
 
     try:
-        # Codify learnings
-        output = codify_handler.codify(evaluation)
+        # 3. Codify (write DNA)
+        output = codify_handler.codify(derivation, evaluation)
         return output
     except Exception as e:
         logger.error(f"Failed to codify {derive_id}: {e}")
@@ -329,3 +342,62 @@ async def quantum_stabilize(spark_name: str):
 
     result = await spark.stabilize()
     return result
+
+
+# ============================
+# DNA ROUTES (Phase 4)
+# ============================
+
+@router.get("/dna/latest", response_model=StyleSignature, tags=["DNA"])
+async def get_latest_dna():
+    """
+    Get the latest creative DNA signature.
+
+    Returns the most recently created style snapshot,
+    showing TraceOS's current creative identity.
+    """
+    sig = dna_store.get_latest_signature()
+    if not sig:
+        raise HTTPException(
+            status_code=404,
+            detail="No DNA signatures found. Create an intent and codify it first."
+        )
+    return sig
+
+
+@router.get("/dna/signatures", response_model=List[str], tags=["DNA"])
+async def list_dna_signatures():
+    """
+    List all stored DNA signature IDs.
+
+    Returns chronologically ordered list of all creative DNA snapshots.
+    """
+    return dna_store.list_signature_ids()
+
+
+@router.get("/dna/signature/{signature_id}", response_model=StyleSignature, tags=["DNA"])
+async def get_dna_signature(signature_id: str):
+    """
+    Get specific DNA signature by ID.
+
+    Retrieve any historical style snapshot for analysis.
+    """
+    sig = dna_store.load_signature(signature_id)
+    if not sig:
+        raise HTTPException(
+            status_code=404,
+            detail=f"DNA signature {signature_id} not found"
+        )
+    return sig
+
+
+@router.get("/dna/lineage", response_model=List[dict], tags=["DNA"])
+async def get_dna_lineage():
+    """
+    Get complete DNA lineage graph.
+
+    Shows how creative identity has evolved over time,
+    including parent-child relationships and alignment scores.
+    """
+    lineage = dna_store.load_lineage()
+    return [node.model_dump() for node in lineage]
