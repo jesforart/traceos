@@ -200,6 +200,19 @@ try:
 except Exception as e:
     logger.error(f"   ❌ Failed to mount hands routes: {e}")
 
+# TraceOS Renderer routes (Phase 6 - Backend Imagination)
+logger.info("👁️ Mounting Renderer routes...")
+try:
+    from traceos.renderer.routes import router as renderer_router
+    app.include_router(
+        renderer_router,
+        prefix="/v1/render",
+        tags=["Renderer"]
+    )
+    logger.info("   ✓ Renderer routes mounted (/v1/render/*)")
+except Exception as e:
+    logger.error(f"   ❌ Failed to mount renderer routes: {e}")
+
 
 # === HEALTH CHECK ENDPOINTS ===
 @app.get("/", tags=["Health"])
