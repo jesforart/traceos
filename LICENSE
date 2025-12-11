@@ -1,0 +1,44 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2024 TraceOS LLC. All Rights Reserved.
+
+NOTICE: This software and its associated documentation contain proprietary
+information belonging to TraceOS LLC. The software architecture, interface
+definitions, and documentation in this repository are provided for reference
+purposes only.
+
+RESTRICTIONS:
+
+1. The core inference engine ("Iron Monolith"), neural network weights,
+   quantum algorithms, and associated proprietary implementations are NOT
+   included in this repository and remain the exclusive property of
+   TraceOS LLC.
+
+2. This reference implementation may be used for:
+   - Academic research and evaluation
+   - Grant application review
+   - Interface compatibility assessment
+   - Educational purposes
+
+3. This reference implementation may NOT be used for:
+   - Commercial deployment
+   - Production systems
+   - Derivative works intended for distribution
+   - Reverse engineering of proprietary components
+
+4. Any use of this software must maintain all copyright notices and
+   attribution to TraceOS LLC.
+
+PATENT NOTICE:
+
+The TraceOS system architecture is protected under US Provisional Patent
+Application 63/926,510. Use of the architectural patterns, Spark Organ
+system, or Protocol Kernel design may require a license.
+
+NO WARRANTY:
+
+THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+For licensing inquiries, contact: legal@traceos.ai
