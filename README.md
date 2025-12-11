@@ -18,30 +18,30 @@ TraceOS runs as a unified high-performance application (the "Iron Monolith") tha
 
 ```
 +-----------------------------------------------------------------------+
-|                         TraceOS Iron Monolith                          |
-|                            (Port 8000)                                 |
+|                         TraceOS Iron Monolith                         |
+|                            (Port 8000)                                |
 +-----------------------------------------------------------------------+
-|                                                                        |
+|                                                                       |
 |   +----------------------------------------------------------------+  |
 |   |                      PROTOCOL KERNEL                           |  |
 |   |           Intent -> Derive -> Evaluate -> Codify -> DNA        |  |
 |   +----------------------------------------------------------------+  |
-|                                                                        |
+|                                                                       |
 |   +--------+  +--------+  +--------+  +--------+  +--------+          |
 |   | BRAIN  |  |  GUT   |  |  EYES  |  | HANDS  |  |  SOUL  |          |
 |   |(logic) |  |(affect)|  |(vision)|  |(motor) |  |(ident) |          |
 |   +--------+  +--------+  +--------+  +--------+  +--------+          |
-|                    |                                   |               |
+|                    |                                   |              |
 |              +-----v-----+                      +------v------+       |
 |              |  QUANTUM  |                      |     DNA     |       |
 |              |  ORGAN    |                      |   ENGINE    |       |
 |              +-----------+                      +-------------+       |
-|                                                                        |
+|                                                                       |
 |   +----------------------------------------------------------------+  |
 |   |                    IMMUNE (Sovereignty Layer)                  |  |
 |   |      "AI can only see, learn, act when artist is present"      |  |
 |   +----------------------------------------------------------------+  |
-|                                                                        |
+|                                                                       |
 +-----------------------------------------------------------------------+
 ```
 
@@ -125,7 +125,7 @@ If you use TraceOS architecture in your research, please cite:
 @software{traceos2024,
   title = {TraceOS: Computational Psyche for Creative AI},
   author = {Hampton, Jessie},
-  year = {2024},
+  year = {2025},
   note = {US Provisional Patent 63/926,510}
 }
 ```
