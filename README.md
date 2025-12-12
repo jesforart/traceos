@@ -1,5 +1,10 @@
 # TraceOS - Computational Psyche for Creative AI
 
+> TraceOS is a **Biomimetic Modular Monolith** for creative systems.
+>
+> It combines formal systems architecture with biological metaphors
+> to make complex, stateful AI understandable and artist-controlled.
+
 **NOTICE:** This repository contains the public architecture specifications and interface definitions for TraceOS. The core "Iron Monolith" inference engine and neural weights are proprietary and pending patent protection (US Provisional 63/926,510). For research access, contact the PI.
 
 ---
@@ -47,7 +52,7 @@ TraceOS runs as a unified high-performance application (the "Iron Monolith") tha
 
 ---
 
-## The Six Spark Organs
+## The Eight Spark Organs
 
 | Organ | Type | Function |
 |-------|------|----------|
@@ -57,6 +62,8 @@ TraceOS runs as a unified high-performance application (the "Iron Monolith") tha
 | Hands | Somatic | Motor control, stroke planning |
 | Soul | Identity | Provenance tracking, DNA alignment |
 | Dream | Consolidation | Long-term memory integration |
+| Shadow | Anomaly | System health monitoring, integrity assurance |
+| Identity | Self-Model | Self-awareness, alignment guardian |
 
 Each Spark maintains persistent state, evaluates derivations from its specialized perspective, and contributes to collective decision-making through the Protocol Kernel.
 
@@ -137,6 +144,33 @@ If you use TraceOS architecture in your research, please cite:
 Proprietary - TraceOS LLC. All rights reserved.
 
 This repository contains interface specifications only. The implementation ("Iron Monolith") is not included.
+
+---
+
+## For Engineers & CTOs
+
+TraceOS uses biological metaphors as a developer interface. Each "Organ" maps directly to a standard systems pattern:
+
+| Biological | Systems Architecture | Pattern |
+|------------|---------------------|---------|
+| Brain | CognitiveEngine | Rule-based inference |
+| Gut | ValuationEngine | Heuristic optimization |
+| Eyes | PerceptionService | Event-driven pipeline |
+| Hands | MotorController | Stateful executor |
+| Soul | IdentityManager | Provenance tracker |
+| Dream | ConsolidationService | Batch processor |
+| Shadow | AnomalyDetector | Health monitor |
+| Identity | SelfModelService | State aggregator |
+
+**Technical aliases available:**
+```python
+from traceos.sparks import CognitiveEngine  # Same as BrainSpark
+from traceos.sparks import ValuationEngine  # Same as GutSpark
+```
+
+See:
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Rosetta Layer mapping
+- [SYSTEM_CANON.md](SYSTEM_CANON.md) - Canonical system definitions
 
 ---
 

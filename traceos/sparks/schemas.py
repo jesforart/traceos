@@ -2,9 +2,12 @@
 TraceOS Spark Schemas
 
 Pydantic models for Spark organ state and metadata.
+
+Pivot Phase: Extended with canonical_role and system_alias
+for dual-naming architecture (Rosetta Layer).
 """
 
-from typing import Literal, Any
+from typing import Literal, Any, Optional
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -15,13 +18,31 @@ OrganType = Literal["cognitive", "affective", "visual", "somatic", "identity", "
 
 
 class SparkMetadata(BaseModel):
-    """Metadata describing a Spark organ."""
+    """
+    Metadata describing a Spark organ.
+
+    Dual-Naming Architecture:
+    - name/organ_type: Biological metaphor (developer UI)
+    - canonical_role/system_alias: Systems vocabulary (engineering docs)
+
+    Both are first-class. Metaphors encode real architectural decisions.
+    """
 
     id: UUID = Field(default_factory=uuid4)
     name: str
     organ_type: OrganType
     version: str = "1.0.0"
     description: str = ""
+
+    # Rosetta Layer: Canonical systems-architecture names
+    canonical_role: Optional[str] = Field(
+        default=None,
+        description="Systems-architecture role (e.g., CognitiveEngine, ValuationEngine)"
+    )
+    system_alias: Optional[str] = Field(
+        default=None,
+        description="Extended formal name (e.g., Logical Analysis Service)"
+    )
 
 
 class SparkState(BaseModel):

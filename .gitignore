@@ -78,3 +78,8 @@ data/telemetry/
 *.key
 *.pem
 credentials/
+
+# Local data (do not commit)
+data/
+*.db
+*.json
