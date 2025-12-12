@@ -52,3 +52,29 @@ dmypy.json
 .env
 .env.local
 *.log
+
+# ===========================================
+# PROPRIETARY CONTENT - NEVER COMMIT
+# ===========================================
+
+# Training scripts (proprietary motor policies)
+traceos/training/
+training/
+**/train_*.py
+**/*_train.py
+
+# Model weights (trained neural networks)
+*.pth
+*.pt
+*.onnx
+*.safetensors
+models/
+
+# Telemetry data (artist data, sensitive)
+data/telemetry/
+*.parquet
+
+# API keys and secrets
+*.key
+*.pem
+credentials/
