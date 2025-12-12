@@ -38,25 +38,25 @@ TraceOS is a **Biomimetic Modular Monolith**:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │                   PROTOCOL KERNEL                        │   │
-│   │         Intent → Derive → Evaluate → Codify → DNA        │   │
+│   │                   PROTOCOL KERNEL                       │   │
+│   │         Intent → Derive → Evaluate → Codify → DNA       │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
-│   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
-│   │ Brain   │ │  Gut    │ │  Eyes   │ │ Hands   │              │
-│   │Cognitive│ │Valuation│ │Percept. │ │ Motor   │              │
-│   │ Engine  │ │ Engine  │ │ Service │ │ Control │              │
-│   └─────────┘ └─────────┘ └─────────┘ └─────────┘              │
+│   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │
+│   │  Brain  │ │   Gut   │ │  Eyes   │ │ Hands   │               │
+│   │Cognitive│ │Valuation│ │ Percept.│ │ Motor   │               │
+│   │ Engine  │ │ Engine  │ │ Service │ │ Control │               │
+│   └─────────┘ └─────────┘ └─────────┘ └─────────┘               │
 │                                                                 │
-│   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
-│   │  Soul   │ │  Dream  │ │ Shadow  │ │Identity │              │
-│   │Identity │ │Consolid.│ │ Anomaly │ │  Self   │              │
-│   │ Manager │ │ Service │ │Detector │ │ Model   │              │
-│   └─────────┘ └─────────┘ └─────────┘ └─────────┘              │
+│   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │
+│   │  Soul   │ │  Dream  │ │ Shadow  │ │Identity │               │
+│   │Identity │ │Consolid.│ │ Anomaly │ │  Self   │               │
+│   │ Manager │ │ Service │ │Detector │ │ Model   │               │
+│   └─────────┘ └─────────┘ └─────────┘ └─────────┘               │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │                 SOVEREIGNTY LAYER                        │   │
-│   │      "AI can only see, learn, act when artist present"   │   │
+│   │                 SOVEREIGNTY LAYER                       │   │
+│   │    "AI can only see, learn, act when artist present"    │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -240,3 +240,6 @@ The biological vocabulary is a **developer experience feature**, not a technical
 ---
 
 *Patent Pending: US Provisional 63/926,510*
+*Patent Pending: US Provisional 63/918,692*
+*Patent Pending: US Provisional 63/918,787*
+*Patent Pending: US Provisional 63/928,884*
