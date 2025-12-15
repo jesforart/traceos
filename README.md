@@ -17,6 +17,18 @@ The system implements a novel "Spark Organ" architecture where specialized cogni
 
 ---
 
+## Research Motivation 
+
+TraceOS is an experimental platform exploring how AI systems can assist human creativity without replacing authorship. Most generative tools treat the human as a prompt source and the model as the primary author; this project investigates an alternative approach where AI operates through deterministic, human-defined action primitives rather than unconstrained generation.
+
+The system represents creative work as structured actions—such as gesture, tool shape, rotation rules, pressure, velocity, and construction order—instead of pixels or latent noise. By making these primitives explicit, TraceOS aims to create control surfaces that are reproducible, interpretable, and attributable, allowing both humans and models to operate within the same bounded action space.
+
+This project serves as a research scaffold for studying human–AI co-creation under constraint, including questions of controllability, provenance, and alignment. Ongoing work focuses on integrating small, modular models that predict next actions within these constraints, enabling AI assistance that amplifies human intent while remaining inspectable and accountable.
+
+TraceOS is not a finished product, but a testbed for understanding how constrained action languages can support safer and more interpretable creative AI systems.
+---
+
+
 ## Architecture: The Iron Monolith
 
 TraceOS runs as a unified high-performance application (the "Iron Monolith") that eliminates inter-service HTTP overhead. All cognitive organs operate within a single process, sharing memory and reducing latency to sub-millisecond levels.
